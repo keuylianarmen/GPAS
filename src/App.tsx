@@ -1,8 +1,37 @@
 import { useState } from 'react'
 import Login from './Login'
+import Customers from './Customers'
+import NewJob from './NewJob'
+import Jobs from './Jobs'
+import Services from './Services'
 import { supabase } from './lib/supabase'
 import { useStaff } from './lib/useStaff'
+import type { Staff } from './lib/useStaff'
 import './App.css'
+
+type Tab =
+  | 'dashboard'
+  | 'new-job'
+  | 'jobs'
+  | 'customers'
+  | 'reminders'
+  | 'services'
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'new-job', label: 'New job' },
+  { key: 'jobs', label: 'Jobs' },
+  { key: 'customers', label: 'Customers' },
+  { key: 'reminders', label: 'Reminders' },
+  { key: 'services', label: 'Services' },
+]
+
+type BuiltTab = 'services' | 'customers' | 'new-job' | 'jobs'
+
+const PLACEHOLDERS: Record<Exclude<Tab, BuiltTab>, string> = {
+  dashboard: 'The dashboard is not built yet.',
+  reminders: 'Reminders are not built yet.',
+}
 
 function SignOutButton({ className }: { className: string }) {
   const [signingOut, setSigningOut] = useState(false)
@@ -25,6 +54,60 @@ function SignOutButton({ className }: { className: string }) {
     >
       {signingOut ? 'Signing out…' : 'Sign out'}
     </button>
+  )
+}
+
+function Shell({ staff }: { staff: Staff }) {
+  const [tab, setTab] = useState<Tab>('services')
+
+  return (
+    <div className="shell">
+      <div className="topbar">
+        <div className="topbar-inner">
+          <div className="brand">
+            <span className="mark" aria-hidden="true" />
+            <span className="wordmark">GRAND PRIX</span>
+          </div>
+
+          {/* Sections of the app, not tabs within a panel — so these are links
+              in spirit, and skip the arrow-key semantics of a real tablist. */}
+          <nav className="tabs" aria-label="Sections">
+            {TABS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                className="tab"
+                aria-current={tab === key ? 'page' : undefined}
+                onClick={() => setTab(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="topbar-identity">
+            <span className="topbar-name" dir="auto">
+              {staff.name_en || staff.name_ar}
+            </span>
+            <SignOutButton className="btn btn--onDark btn--small" />
+          </div>
+        </div>
+      </div>
+
+      <main className="workspace">
+        {tab === 'services' ? (
+          <Services />
+        ) : tab === 'customers' ? (
+          <Customers staff={staff} />
+        ) : tab === 'jobs' ? (
+          <Jobs staff={staff} />
+        ) : tab === 'new-job' ? (
+          <NewJob />
+        ) : (
+          <p className="empty">{PLACEHOLDERS[tab]}</p>
+        )}
+      </main>
+    </div>
   )
 }
 
@@ -55,27 +138,11 @@ export default function App() {
               admin to add you.
             </p>
           </div>
-          <SignOutButton className="btn" />
+          <SignOutButton className="btn btn--dark btn--full" />
         </div>
       </main>
     )
   }
 
-  return (
-    <div className="app">
-      <header className="topbar">
-        <span className="wordmark">GPAS</span>
-        <div className="identity">
-          <span className="name" dir="auto">
-            {staff.name_en || staff.name_ar}
-          </span>
-          <span className="role">{staff.role}</span>
-          <SignOutButton className="btn-quiet" />
-        </div>
-      </header>
-      <main className="workspace">
-        <p className="muted">Nothing here yet.</p>
-      </main>
-    </div>
-  )
+  return <Shell staff={staff} />
 }

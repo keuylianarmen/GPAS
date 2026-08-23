@@ -25,7 +25,6 @@ export type Database = {
           phone: string | null
           source: string | null
           whatsapp_opt_in: boolean
-          whatsapp_phone: string | null
         }
         Insert: {
           created_at?: string
@@ -37,7 +36,6 @@ export type Database = {
           phone?: string | null
           source?: string | null
           whatsapp_opt_in?: boolean
-          whatsapp_phone?: string | null
         }
         Update: {
           created_at?: string
@@ -49,7 +47,6 @@ export type Database = {
           phone?: string | null
           source?: string | null
           whatsapp_opt_in?: boolean
-          whatsapp_phone?: string | null
         }
         Relationships: []
       }
@@ -121,6 +118,8 @@ export type Database = {
           installed_by: string | null
           job_id: string
           labor_price: number
+          next_due_date: string | null
+          next_due_odometer: number | null
           notes: string | null
           part_cost: number
           part_price: number
@@ -139,6 +138,8 @@ export type Database = {
           installed_by?: string | null
           job_id: string
           labor_price?: number
+          next_due_date?: string | null
+          next_due_odometer?: number | null
           notes?: string | null
           part_cost?: number
           part_price?: number
@@ -157,6 +158,8 @@ export type Database = {
           installed_by?: string | null
           job_id?: string
           labor_price?: number
+          next_due_date?: string | null
+          next_due_odometer?: number | null
           notes?: string | null
           part_cost?: number
           part_price?: number
@@ -197,6 +200,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["service_id"]
+          },
+          {
             foreignKeyName: "job_items_subcontractor_id_fkey"
             columns: ["subcontractor_id"]
             isOneToOne: false
@@ -223,6 +233,8 @@ export type Database = {
           status: Database["public"]["Enums"]["job_status"]
           tax_rate: number
           technician_id: string | null
+          updated_at: string | null
+          updated_by: string | null
           vehicle_id: string | null
         }
         Insert: {
@@ -242,6 +254,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["job_status"]
           tax_rate?: number
           technician_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
           vehicle_id?: string | null
         }
         Update: {
@@ -261,6 +275,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["job_status"]
           tax_rate?: number
           technician_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
           vehicle_id?: string | null
         }
         Relationships: [
@@ -275,6 +291,13 @@ export type Database = {
             foreignKeyName: "jobs_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_tow_leads"
             referencedColumns: ["id"]
           },
@@ -284,6 +307,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["vehicle_id"]
           },
           {
             foreignKeyName: "jobs_vehicle_id_fkey"
@@ -413,47 +450,124 @@ export type Database = {
           },
         ]
       }
+      reminder_mutes: {
+        Row: {
+          customer_id: string
+          id: string
+          muted_at: string
+          muted_by: string | null
+          reason: string | null
+          service_id: string | null
+        }
+        Insert: {
+          customer_id: string
+          id?: string
+          muted_at?: string
+          muted_by?: string | null
+          reason?: string | null
+          service_id?: string | null
+        }
+        Update: {
+          customer_id?: string
+          id?: string
+          muted_at?: string
+          muted_by?: string | null
+          reason?: string | null
+          service_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_tow_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_muted_by_fkey"
+            columns: ["muted_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["service_id"]
+          },
+        ]
+      }
       reminders: {
         Row: {
           created_at: string
+          created_by: string | null
           due_date: string | null
           due_odometer: number | null
           id: string
           job_item_id: string | null
-          reminder_type: string
+          note: string | null
           sent_at: string | null
-          service_id: string | null
+          service_id: string
           status: Database["public"]["Enums"]["reminder_status"]
-          template_key: string | null
           vehicle_id: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           due_date?: string | null
           due_odometer?: number | null
           id?: string
           job_item_id?: string | null
-          reminder_type: string
+          note?: string | null
           sent_at?: string | null
-          service_id?: string | null
+          service_id: string
           status?: Database["public"]["Enums"]["reminder_status"]
-          template_key?: string | null
           vehicle_id: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           due_date?: string | null
           due_odometer?: number | null
           id?: string
           job_item_id?: string | null
-          reminder_type?: string
+          note?: string | null
           sent_at?: string | null
-          service_id?: string | null
+          service_id?: string
           status?: Database["public"]["Enums"]["reminder_status"]
-          template_key?: string | null
           vehicle_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reminders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reminders_job_item_id_fkey"
             columns: ["job_item_id"]
@@ -481,6 +595,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "services"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminders_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "reminders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["vehicle_id"]
           },
           {
             foreignKeyName: "reminders_vehicle_id_fkey"
@@ -546,6 +674,13 @@ export type Database = {
             referencedRelation: "services"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "service_parts_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["service_id"]
+          },
         ]
       }
       services: {
@@ -564,7 +699,6 @@ export type Database = {
           pricing_model: Database["public"]["Enums"]["pricing_model"]
           reminder_km: number | null
           reminder_months: number | null
-          reminder_type: string | null
           triggers_reminder: boolean
         }
         Insert: {
@@ -582,7 +716,6 @@ export type Database = {
           pricing_model?: Database["public"]["Enums"]["pricing_model"]
           reminder_km?: number | null
           reminder_months?: number | null
-          reminder_type?: string | null
           triggers_reminder?: boolean
         }
         Update: {
@@ -600,7 +733,6 @@ export type Database = {
           pricing_model?: Database["public"]["Enums"]["pricing_model"]
           reminder_km?: number | null
           reminder_months?: number | null
-          reminder_type?: string | null
           triggers_reminder?: boolean
         }
         Relationships: [
@@ -776,6 +908,13 @@ export type Database = {
             foreignKeyName: "vehicles_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "vehicles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_tow_leads"
             referencedColumns: ["id"]
           },
@@ -783,6 +922,54 @@ export type Database = {
       }
     }
     Views: {
+      v_customer_mutes: {
+        Row: {
+          customer_id: string | null
+          id: string | null
+          muted_at: string | null
+          reason: string | null
+          service_ar: string | null
+          service_en: string | null
+          service_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_tow_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["service_id"]
+          },
+        ]
+      }
       v_flagged_work: {
         Row: {
           category: string | null
@@ -853,6 +1040,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["service_id"]
+          },
+          {
             foreignKeyName: "job_items_subcontractor_id_fkey"
             columns: ["subcontractor_id"]
             isOneToOne: false
@@ -918,6 +1112,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["service_id"]
+          },
+          {
             foreignKeyName: "services_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
@@ -953,6 +1154,13 @@ export type Database = {
             foreignKeyName: "jobs_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_due"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
@@ -973,20 +1181,25 @@ export type Database = {
       }
       v_reminders_due: {
         Row: {
+          category: string | null
           current_odometer: number | null
-          customer: string | null
+          customer_id: string | null
           due_date: string | null
           due_odometer: number | null
           id: string | null
           make: string | null
           model: string | null
+          name_ar: string | null
+          name_en: string | null
+          note: string | null
+          phone: string | null
           plate: string | null
-          reminder_type: string | null
           service_ar: string | null
           service_en: string | null
-          template_key: string | null
+          service_id: string | null
+          triggered_by: string | null
+          vehicle_id: string | null
           whatsapp_opt_in: boolean | null
-          whatsapp_phone: string | null
         }
         Relationships: []
       }
@@ -1005,6 +1218,16 @@ export type Database = {
       }
     }
     Functions: {
+      add_manual_reminder: {
+        Args: {
+          p_due_date?: string
+          p_due_odometer?: number
+          p_note?: string
+          p_service_id: string
+          p_vehicle_id: string
+        }
+        Returns: string
+      }
       current_staff_role: {
         Args: never
         Returns: Database["public"]["Enums"]["staff_role"]

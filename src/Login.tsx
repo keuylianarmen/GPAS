@@ -78,7 +78,11 @@ export default function Login() {
           </p>
         )}
 
-        <button type="submit" className="btn" disabled={submitting}>
+        <button
+          type="submit"
+          className="btn btn--dark btn--full"
+          disabled={submitting}
+        >
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
