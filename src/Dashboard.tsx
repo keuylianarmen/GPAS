@@ -91,7 +91,7 @@ export default function Dashboard({
             'id, job_no, start_date, payment_method, vehicle_id, customers(name_en, name_ar), vehicles(plate, make, model), job_items(services(name_en))',
           )
           .order('start_date', { ascending: false })
-          .order('created_at', { ascending: false })
+          .order('job_no', { ascending: false })
           .limit(5),
         supabase.from('v_reminders_live').select('*').eq('bucket', 'due'),
         supabase

@@ -111,7 +111,7 @@ export default function Jobs({ staff }: { staff: Staff }) {
         .from('jobs')
         .select('*, customers(name_en, name_ar), vehicles(plate, make, model), job_items(count)')
         .order('start_date', { ascending: false })
-        .order('created_at', { ascending: false })
+        .order('job_no', { ascending: false })
         .limit(LIST_LIMIT)
 
       if (customerFilter) query = query.eq('customer_id', customerFilter)

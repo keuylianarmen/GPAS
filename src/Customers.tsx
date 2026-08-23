@@ -281,7 +281,8 @@ function CustomerDetail({
           .from('jobs')
           .select('*')
           .eq('customer_id', customer.id)
-          .order('start_date', { ascending: false }),
+          .order('start_date', { ascending: false })
+          .order('job_no', { ascending: false }),
         supabase
           .from('v_customer_mutes')
           .select('*')
