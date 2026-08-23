@@ -506,7 +506,8 @@ function JobDialog({
         .select('id', { count: 'exact', head: true })
         .in('job_item_id', savedLineIds)
         .eq('vehicle_id', job.vehicle_id)
-        .eq('status', 'pending')
+        // Matches what the trigger cancels; 'pending' alone understates it.
+        .in('status', ['pending', 'queued'])
 
       if (countError) {
         setError(countError.message)

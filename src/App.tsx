@@ -3,6 +3,8 @@ import Login from './Login'
 import Customers from './Customers'
 import NewJob from './NewJob'
 import Jobs from './Jobs'
+import Reminders from './Reminders'
+import Dashboard from './Dashboard'
 import Services from './Services'
 import { supabase } from './lib/supabase'
 import { useStaff } from './lib/useStaff'
@@ -25,13 +27,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'reminders', label: 'Reminders' },
   { key: 'services', label: 'Services' },
 ]
-
-type BuiltTab = 'services' | 'customers' | 'new-job' | 'jobs'
-
-const PLACEHOLDERS: Record<Exclude<Tab, BuiltTab>, string> = {
-  dashboard: 'The dashboard is not built yet.',
-  reminders: 'Reminders are not built yet.',
-}
 
 function SignOutButton({ className }: { className: string }) {
   const [signingOut, setSigningOut] = useState(false)
@@ -101,10 +96,12 @@ function Shell({ staff }: { staff: Staff }) {
           <Customers staff={staff} />
         ) : tab === 'jobs' ? (
           <Jobs staff={staff} />
+        ) : tab === 'reminders' ? (
+          <Reminders />
         ) : tab === 'new-job' ? (
           <NewJob />
         ) : (
-          <p className="empty">{PLACEHOLDERS[tab]}</p>
+          <Dashboard onNavigate={setTab} />
         )}
       </main>
     </div>

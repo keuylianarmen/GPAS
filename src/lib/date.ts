@@ -19,3 +19,10 @@ export function addMonths(iso: string, months: number): string {
   target.setUTCDate(Math.min(day, daysInTargetMonth))
   return target.toISOString().slice(0, 10)
 }
+
+/** Adds whole days to a YYYY-MM-DD date. */
+export function addDays(iso: string, days: number): string {
+  const [year, month, day] = iso.split('-').map(Number)
+  const target = new Date(Date.UTC(year, month - 1, day + days))
+  return target.toISOString().slice(0, 10)
+}

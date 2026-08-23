@@ -203,7 +203,7 @@ export type Database = {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["service_id"]
           },
           {
@@ -291,7 +291,14 @@ export type Database = {
             foreignKeyName: "jobs_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_customer_contact_health"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["customer_id"]
           },
           {
@@ -319,7 +326,7 @@ export type Database = {
             foreignKeyName: "jobs_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["vehicle_id"]
           },
           {
@@ -487,7 +494,14 @@ export type Database = {
             foreignKeyName: "reminder_mutes_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_customer_contact_health"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["customer_id"]
           },
           {
@@ -515,8 +529,66 @@ export type Database = {
             foreignKeyName: "reminder_mutes_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["service_id"]
+          },
+        ]
+      }
+      reminder_sends: {
+        Row: {
+          attempted_at: string
+          attempted_by: string | null
+          channel: string
+          error_code: string | null
+          error_detail: string | null
+          id: string
+          provider_message_id: string | null
+          reminder_id: string
+          status: string
+        }
+        Insert: {
+          attempted_at?: string
+          attempted_by?: string | null
+          channel?: string
+          error_code?: string | null
+          error_detail?: string | null
+          id?: string
+          provider_message_id?: string | null
+          reminder_id: string
+          status: string
+        }
+        Update: {
+          attempted_at?: string
+          attempted_by?: string | null
+          channel?: string
+          error_code?: string | null
+          error_detail?: string | null
+          id?: string
+          provider_message_id?: string | null
+          reminder_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_sends_attempted_by_fkey"
+            columns: ["attempted_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_sends_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "reminders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_sends_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_live"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -600,14 +672,14 @@ export type Database = {
             foreignKeyName: "reminders_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["service_id"]
           },
           {
             foreignKeyName: "reminders_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["vehicle_id"]
           },
           {
@@ -678,7 +750,7 @@ export type Database = {
             foreignKeyName: "service_parts_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["service_id"]
           },
         ]
@@ -908,7 +980,14 @@ export type Database = {
             foreignKeyName: "vehicles_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_customer_contact_health"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "vehicles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["customer_id"]
           },
           {
@@ -922,6 +1001,18 @@ export type Database = {
       }
     }
     Views: {
+      v_customer_contact_health: {
+        Row: {
+          customer_id: string | null
+          failed_sends: number | null
+          last_attempt_failed: boolean | null
+          last_failure: string | null
+          last_success: string | null
+          no_opt_in: boolean | null
+          no_phone: boolean | null
+        }
+        Relationships: []
+      }
       v_customer_mutes: {
         Row: {
           customer_id: string | null
@@ -944,7 +1035,14 @@ export type Database = {
             foreignKeyName: "reminder_mutes_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_customer_contact_health"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["customer_id"]
           },
           {
@@ -965,7 +1063,7 @@ export type Database = {
             foreignKeyName: "reminder_mutes_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["service_id"]
           },
         ]
@@ -1043,7 +1141,7 @@ export type Database = {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["service_id"]
           },
           {
@@ -1115,7 +1213,7 @@ export type Database = {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["service_id"]
           },
           {
@@ -1154,7 +1252,7 @@ export type Database = {
             foreignKeyName: "jobs_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
-            referencedRelation: "v_reminders_due"
+            referencedRelation: "v_reminders_live"
             referencedColumns: ["vehicle_id"]
           },
           {
@@ -1179,11 +1277,14 @@ export type Database = {
         }
         Relationships: []
       }
-      v_reminders_due: {
+      v_reminders_live: {
         Row: {
+          bucket: string | null
           category: string | null
+          created_at: string | null
           current_odometer: number | null
           customer_id: string | null
+          date_reached: boolean | null
           due_date: string | null
           due_odometer: number | null
           id: string | null
@@ -1192,6 +1293,7 @@ export type Database = {
           name_ar: string | null
           name_en: string | null
           note: string | null
+          odometer_reached: boolean | null
           phone: string | null
           plate: string | null
           service_ar: string | null
@@ -1267,9 +1369,28 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      log_reminder_send: {
+        Args: {
+          p_channel?: string
+          p_error_code?: string
+          p_error_detail?: string
+          p_message_id?: string
+          p_reminder_id: string
+          p_status: string
+        }
+        Returns: string
+      }
       odometer_looks_wrong: {
         Args: { p_reading: number; p_vehicle_id: string }
         Returns: string
+      }
+      set_reminder_due: {
+        Args: {
+          p_due_date?: string
+          p_due_odometer?: number
+          p_reminder_id: string
+        }
+        Returns: undefined
       }
       shop_hourly_rate: { Args: never; Returns: number }
       upsert_reminder_for_line: {

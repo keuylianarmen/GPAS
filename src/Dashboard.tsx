@@ -1,0 +1,319 @@
+import { useEffect, useState } from 'react'
+import type { Database } from './types/database'
+import { supabase } from './lib/supabase'
+import { money } from './lib/format'
+import { todayIso } from './lib/date'
+import { customerLabel } from './lib/customer'
+import { jobVehicleLabel } from './lib/vehicle'
+
+type LiveReminder = Database['public']['Views']['v_reminders_live']['Row']
+
+type RecentJob = {
+  id: string
+  job_no: number
+  start_date: string
+  payment_method: string | null
+  vehicle_id: string | null
+  customers: { name_en: string | null; name_ar: string | null } | null
+  vehicles: { plate: string | null; make: string | null; model: string | null } | null
+  job_items: { services: { name_en: string } | null }[]
+}
+
+type Counts = {
+  jobsToday: number
+  revenueThisMonth: number
+  customers: number
+  failed: number
+  noPhone: number
+  noOptIn: number
+}
+
+const EMPTY_COUNTS: Counts = {
+  jobsToday: 0,
+  revenueThisMonth: 0,
+  customers: 0,
+  failed: 0,
+  noPhone: 0,
+  noOptIn: 0,
+}
+
+function monthBounds(today: string): { start: string; end: string } {
+  const [year, month] = today.split('-').map(Number)
+  const start = `${today.slice(0, 7)}-01`
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return { start, end: `${today.slice(0, 7)}-${String(lastDay).padStart(2, '0')}` }
+}
+
+export default function Dashboard({
+  onNavigate,
+}: {
+  onNavigate: (tab: 'jobs' | 'customers' | 'reminders') => void
+}) {
+  const [counts, setCounts] = useState<Counts>(EMPTY_COUNTS)
+  const [recentJobs, setRecentJobs] = useState<RecentJob[]>([])
+  const [jobTotals, setJobTotals] = useState<Map<string, number | null>>(new Map())
+  const [dueReminders, setDueReminders] = useState<LiveReminder[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const today = todayIso()
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      const { start, end } = monthBounds(today)
+
+      const [
+        jobsTodayResult,
+        revenueResult,
+        customerResult,
+        recentResult,
+        reminderResult,
+        failedResult,
+        noPhoneResult,
+        noOptInResult,
+      ] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('id', { count: 'exact', head: true })
+          .eq('start_date', today),
+        // Revenue comes from the totals view; it is never stored on the job.
+        supabase
+          .from('v_job_totals')
+          .select('total_with_tax')
+          .gte('start_date', start)
+          .lte('start_date', end),
+        supabase.from('customers').select('id', { count: 'exact', head: true }),
+        supabase
+          .from('jobs')
+          .select(
+            'id, job_no, start_date, payment_method, vehicle_id, customers(name_en, name_ar), vehicles(plate, make, model), job_items(services(name_en))',
+          )
+          .order('start_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase.from('v_reminders_live').select('*').eq('bucket', 'due'),
+        supabase
+          .from('v_customer_contact_health')
+          .select('customer_id', { count: 'exact', head: true })
+          .is('last_attempt_failed', true),
+        supabase
+          .from('v_customer_contact_health')
+          .select('customer_id', { count: 'exact', head: true })
+          .is('no_phone', true),
+        supabase
+          .from('v_customer_contact_health')
+          .select('customer_id', { count: 'exact', head: true })
+          .is('no_opt_in', true),
+      ])
+
+      if (cancelled) return
+
+      const failure =
+        jobsTodayResult.error ??
+        revenueResult.error ??
+        customerResult.error ??
+        recentResult.error ??
+        reminderResult.error ??
+        failedResult.error ??
+        noPhoneResult.error ??
+        noOptInResult.error
+
+      if (failure) {
+        setError(failure.message)
+        setLoading(false)
+        return
+      }
+
+      setCounts({
+        jobsToday: jobsTodayResult.count ?? 0,
+        revenueThisMonth: (revenueResult.data ?? []).reduce(
+          (sum, row) => sum + (row.total_with_tax ?? 0),
+          0,
+        ),
+        customers: customerResult.count ?? 0,
+        failed: failedResult.count ?? 0,
+        noPhone: noPhoneResult.count ?? 0,
+        noOptIn: noOptInResult.count ?? 0,
+      })
+
+      const jobs = recentResult.data ?? []
+      setRecentJobs(jobs)
+      setDueReminders(reminderResult.data ?? [])
+
+      if (jobs.length > 0) {
+        const { data: totals } = await supabase
+          .from('v_job_totals')
+          .select('job_id, total_with_tax')
+          .in(
+            'job_id',
+            jobs.map((job) => job.id),
+          )
+
+        if (cancelled) return
+        setJobTotals(
+          new Map(
+            (totals ?? []).flatMap((row) =>
+              row.job_id ? [[row.job_id, row.total_with_tax] as const] : [],
+            ),
+          ),
+        )
+      }
+
+      setLoading(false)
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [today])
+
+  if (loading) return <p className="muted">Loading…</p>
+
+  if (error) {
+    return (
+      <div className="card notice">
+        <p>Could not load the dashboard.</p>
+        <p className="muted">{error}</p>
+      </div>
+    )
+  }
+
+  const contactFlags = [
+    { key: 'failed', label: 'Last attempt failed', value: counts.failed },
+    { key: 'no-phone', label: 'No phone number', value: counts.noPhone },
+    { key: 'no-opt-in', label: 'No WhatsApp opt-in', value: counts.noOptIn },
+  ] as const
+
+  return (
+    <>
+      <div className="stat-grid">
+        <div className="card stat">
+          <div className="stat-label">Jobs today</div>
+          <div className="stat-value num">{counts.jobsToday}</div>
+        </div>
+        <div className="card stat">
+          <div className="stat-label">Revenue this month</div>
+          <div className="stat-value num">
+            {money(counts.revenueThisMonth)}
+            <span className="stat-unit">JOD</span>
+          </div>
+        </div>
+        <div className="card stat">
+          <div className="stat-label">Reminders due</div>
+          <div className="stat-value num">{dueReminders.length}</div>
+        </div>
+        <div className="card stat">
+          <div className="stat-label">Customers</div>
+          <div className="stat-value num">{counts.customers}</div>
+        </div>
+      </div>
+
+      <div className="dash-columns">
+        <section>
+          <div className="section-label">
+            <span>Recent jobs</span>
+            <button
+              type="button"
+              className="btn btn--quiet btn--small"
+              onClick={() => onNavigate('jobs')}
+            >
+              See all
+            </button>
+          </div>
+
+          {recentJobs.length === 0 ? (
+            <p className="empty">No jobs yet.</p>
+          ) : (
+            recentJobs.map((job) => (
+              <div className="card dash-row" key={job.id}>
+                <div className="dash-row-main">
+                  <div className="dash-row-title" dir="auto">
+                    {job.customers ? customerLabel(job.customers) : 'Unknown customer'}
+                  </div>
+                  <div className="list-row-meta">
+                    <span className="num">
+                      {jobVehicleLabel(job.vehicle_id, job.vehicles)}
+                    </span>
+                    {' · '}
+                    <span className="num">{job.start_date}</span>
+                  </div>
+                  <div className="list-row-meta">
+                    {job.job_items
+                      .flatMap((item) => (item.services ? [item.services.name_en] : []))
+                      .join(' · ') || 'No lines'}
+                  </div>
+                </div>
+                <div className="dash-row-side">
+                  <div className="num list-row-amount">
+                    {money(jobTotals.get(job.id) ?? null)}
+                  </div>
+                  {job.payment_method && (
+                    <div className="list-row-meta">{job.payment_method}</div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </section>
+
+        <section>
+          <div className="section-label">
+            <span>Reminders due</span>
+            <button
+              type="button"
+              className="btn btn--quiet btn--small"
+              onClick={() => onNavigate('reminders')}
+            >
+              See all
+            </button>
+          </div>
+
+          {dueReminders.length === 0 ? (
+            <p className="empty">Nothing due right now.</p>
+          ) : (
+            dueReminders.slice(0, 5).map((row) => (
+              <div className="card dash-row" key={row.id}>
+                <div className="dash-row-main">
+                  <div className="dash-row-title">
+                    {row.service_en ?? 'Unknown service'}
+                  </div>
+                  <div className="list-row-meta">
+                    <span dir="auto">{customerLabel(row)}</span>
+                    {' · '}
+                    <span className="num">
+                      {row.due_date ?? `${row.due_odometer ?? '—'} km`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </section>
+      </div>
+
+      <div className="section-label dash-health-head">
+        <span>Contact health</span>
+      </div>
+      <p className="field-note">
+        Reminders for these customers can never be sent as things stand.
+      </p>
+
+      <div className="stat-grid">
+        {contactFlags.map((flag) => (
+          <button
+            type="button"
+            className={`card stat stat--action flag--${flag.key}`}
+            key={flag.key}
+            onClick={() => onNavigate('customers')}
+          >
+            <div className="stat-label">{flag.label}</div>
+            <div className="stat-value num">{flag.value}</div>
+          </button>
+        ))}
+      </div>
+    </>
+  )
+}

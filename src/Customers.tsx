@@ -10,6 +10,8 @@ import MuteDialog from './components/MuteDialog'
 import type { MutableService } from './components/MuteDialog'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
 import { vehicleLabel } from './lib/vehicle'
+import { CONTACT_PROBLEM_LABELS, contactProblem } from './lib/contactHealth'
+import type { ContactHealth } from './lib/contactHealth'
 
 type Customer = Database['public']['Tables']['customers']['Row']
 type Vehicle = Database['public']['Tables']['vehicles']['Row']
@@ -21,6 +23,7 @@ type CustomerListItem = Customer & { vehicleCount: number; jobCount: number }
 
 export default function Customers({ staff }: { staff: Staff }) {
   const [customers, setCustomers] = useState<CustomerListItem[]>([])
+  const [health, setHealth] = useState<Map<string, ContactHealth>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
@@ -34,18 +37,31 @@ export default function Customers({ staff }: { staff: Staff }) {
 
     async function load() {
       // Counted in Postgres rather than by pulling every vehicle and job row.
-      const { data, error: loadError } = await supabase
-        .from('customers')
-        .select('*, vehicles(count), jobs(count)')
-        .order('created_at', { ascending: false })
+      const [customerResult, healthResult] = await Promise.all([
+        supabase
+          .from('customers')
+          .select('*, vehicles(count), jobs(count)')
+          .order('created_at', { ascending: false }),
+        supabase.from('v_customer_contact_health').select('*'),
+      ])
 
       if (cancelled) return
 
+      const loadError = customerResult.error ?? healthResult.error
       if (loadError) {
         setError(loadError.message)
         setLoading(false)
         return
       }
+
+      const data = customerResult.data
+      setHealth(
+        new Map(
+          (healthResult.data ?? []).flatMap((row) =>
+            row.customer_id ? [[row.customer_id, row] as const] : [],
+          ),
+        ),
+      )
 
       setCustomers(
         (data ?? []).map(({ vehicles, jobs, ...customer }) => ({
@@ -137,6 +153,17 @@ export default function Customers({ staff }: { staff: Staff }) {
 
               <div className="customer-phone num">{customer.phone || 'No phone'}</div>
 
+              {(() => {
+                // Consent and deliverability are different things, so the flag
+                // is styled apart from the opt-in pill above.
+                const problem = contactProblem(health.get(customer.id))
+                return problem ? (
+                  <div className={`flag flag--${problem}`}>
+                    {CONTACT_PROBLEM_LABELS[problem]}
+                  </div>
+                ) : null
+              })()}
+
               <div className="customer-counts">
                 <span className="num">{customer.vehicleCount}</span>{' '}
                 {customer.vehicleCount === 1 ? 'vehicle' : 'vehicles'} ·{' '}
@@ -165,6 +192,7 @@ export default function Customers({ staff }: { staff: Staff }) {
                 : current,
             )
           }}
+          health={health.get(openCustomer.id)}
           onVehicleAdded={() => {
             setCustomers((current) =>
               current.map((row) =>
@@ -208,12 +236,14 @@ type VehicleWithReminders = Vehicle & { reminders: PendingReminder[] }
 function CustomerDetail({
   customer,
   staff,
+  health,
   onClose,
   onCustomerChanged,
   onVehicleAdded,
 }: {
   customer: CustomerListItem
   staff: Staff
+  health: ContactHealth | undefined
   onClose: () => void
   onCustomerChanged: (customer: Customer) => void
   onVehicleAdded: () => void
@@ -387,6 +417,32 @@ function CustomerDetail({
           )}
           {customer.is_periodic && <span className="pill">Regular schedule</span>}
         </div>
+
+        {(() => {
+          const problem = contactProblem(health)
+          if (!problem) return null
+          return (
+            <div className={`flag flag--block flag--${problem}`}>
+              <div className="flag-title">{CONTACT_PROBLEM_LABELS[problem]}</div>
+              <div className="flag-detail">
+                {health?.failed_sends ? (
+                  <>
+                    <span className="num">{health.failed_sends}</span> failed{' '}
+                    {health.failed_sends === 1 ? 'attempt' : 'attempts'}
+                    {health.last_failure
+                      ? ', last on '
+                      : '. No failure recorded yet.'}
+                    {health.last_failure && (
+                      <span className="num">{health.last_failure.slice(0, 10)}</span>
+                    )}
+                  </>
+                ) : (
+                  'No failed attempts recorded.'
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
         {customer.notes && (
           <p className="detail-notes" dir="auto">
