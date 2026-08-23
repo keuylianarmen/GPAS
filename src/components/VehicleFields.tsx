@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { VehicleDraft } from '../lib/vehicle'
 import { useLookup } from '../lib/useLookup'
 import LookupSelect from './LookupSelect'
@@ -6,13 +7,13 @@ export default function VehicleFields({
   draft,
   onChange,
   disabled = false,
-  showOdometer = true,
+  odometerNote,
 }: {
   draft: VehicleDraft
   onChange: (next: VehicleDraft) => void
   disabled?: boolean
-  /** Off when editing: a vehicle's reading is set by jobs, not by hand. */
-  showOdometer?: boolean
+  /** Advisory note rendered under the odometer, when a vehicle is known. */
+  odometerNote?: ReactNode
 }) {
   const categories = useLookup('vehicle_category')
 
@@ -82,21 +83,20 @@ export default function VehicleFields({
         </label>
       </div>
 
-      {showOdometer && (
-        <label className="field field--narrow">
-          <span>
-            Odometer <span className="field-hint">km</span>
-          </span>
-          <input
-            className="num"
-            inputMode="numeric"
-            value={draft.odometer}
-            onChange={set('odometer')}
-            placeholder="84210"
-            disabled={disabled}
-          />
-        </label>
-      )}
+      <label className="field field--narrow">
+        <span>
+          Odometer <span className="field-hint">km</span>
+        </span>
+        <input
+          className="num"
+          inputMode="numeric"
+          value={draft.odometer}
+          onChange={set('odometer')}
+          placeholder="84210"
+          disabled={disabled}
+        />
+      </label>
+      {odometerNote}
     </>
   )
 }

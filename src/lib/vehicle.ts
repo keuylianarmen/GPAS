@@ -69,12 +69,20 @@ export function draftFromVehicle(vehicle: Vehicle): VehicleDraft {
   }
 }
 
-/** Edits cover identity fields only — the odometer is driven by jobs. */
+/**
+ * A manual edit writes the reading straight to the vehicle and always wins —
+ * whoever is editing is looking at the dashboard.
+ */
 export function vehicleUpdateFrom(
   draft: VehicleDraft,
 ): VehicleUpdate | { error: string } {
   const year = parseOptionalInteger(draft.year)
   if (year === 'invalid') return { error: 'Year must be a whole number, or left blank.' }
+
+  const odometer = parseOptionalInteger(draft.odometer)
+  if (odometer === 'invalid') {
+    return { error: 'Odometer must be a whole number, or left blank.' }
+  }
 
   return {
     plate: draft.plate.trim() || null,
@@ -83,5 +91,35 @@ export function vehicleUpdateFrom(
     model: draft.model.trim() || null,
     year,
     category: draft.category.trim() || null,
+    current_odometer: odometer,
   }
+}
+
+type VehicleLike = {
+  plate: string | null
+  make?: string | null
+  model?: string | null
+}
+
+/**
+ * Identifies a vehicle where the plate would otherwise stand alone. Plate is
+ * nullable, so fall through to make and model before admitting defeat — the
+ * vehicle exists either way.
+ */
+export function vehicleLabel(vehicle: VehicleLike): string {
+  if (vehicle.plate) return vehicle.plate
+  const spec = [vehicle.make, vehicle.model].filter(Boolean).join(' ')
+  return spec || 'Vehicle, no plate'
+}
+
+/**
+ * Same, for a job's optional vehicle slot. `vehicle_id` is what decides whether
+ * a vehicle is linked at all — a null plate says nothing about that.
+ */
+export function jobVehicleLabel(
+  vehicleId: string | null,
+  vehicle: VehicleLike | null | undefined,
+): string {
+  if (vehicleId === null) return 'No vehicle linked'
+  return vehicle ? vehicleLabel(vehicle) : 'Vehicle, no plate'
 }

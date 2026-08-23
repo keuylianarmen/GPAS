@@ -1267,7 +1267,19 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      odometer_looks_wrong: {
+        Args: { p_reading: number; p_vehicle_id: string }
+        Returns: string
+      }
       shop_hourly_rate: { Args: never; Returns: number }
+      upsert_reminder_for_line: {
+        Args: { p_line_id: string }
+        Returns: undefined
+      }
+      vehicle_odometer_without_job: {
+        Args: { p_job_id: string; p_vehicle_id: string }
+        Returns: number
+      }
     }
     Enums: {
       item_status: "flagged" | "declined" | "done"

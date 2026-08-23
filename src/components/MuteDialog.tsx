@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import Dialog from './Dialog'
 
-type Service = Database['public']['Tables']['services']['Row']
+/** A service this customer currently has an unmuted pending reminder for. */
+export type MutableService = { id: string; name: string }
 
 /**
  * A mute is a preference about one kind of message, distinct from
@@ -15,16 +15,26 @@ export default function MuteDialog({
   customerId,
   staffId,
   services,
+  allMuted,
   onClose,
   onSaved,
 }: {
   customerId: string
   staffId: string
-  services: Service[]
+  /** Derived from pending reminders, minus anything already muted. */
+  services: MutableService[]
+  /** A service_id-null mute already exists; a unique index allows only one. */
+  allMuted: boolean
   onClose: () => void
   onSaved: () => void
 }) {
-  const [scope, setScope] = useState<'service' | 'all'>('service')
+  const canMuteService = services.length > 0
+  const canMuteAll = !allMuted
+  const canMute = canMuteService || canMuteAll
+
+  const [scope, setScope] = useState<'service' | 'all'>(
+    canMuteService ? 'service' : 'all',
+  )
   const [serviceId, setServiceId] = useState('')
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -33,8 +43,15 @@ export default function MuteDialog({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
+    if (!canMute) return
+
     if (scope === 'service' && !serviceId) {
       setError('Choose the service to mute.')
+      return
+    }
+
+    if (scope === 'all' && !canMuteAll) {
+      setError('Everything is already muted for this customer.')
       return
     }
 
@@ -68,12 +85,35 @@ export default function MuteDialog({
             onChange={(event) => setScope(event.target.value as 'service' | 'all')}
             disabled={saving}
           >
-            <option value="service">One service</option>
-            <option value="all">Every reminder for this customer</option>
+            <option value="service" disabled={!canMuteService}>
+              One service
+            </option>
+            <option value="all" disabled={!canMuteAll}>
+              Every reminder for this customer
+            </option>
           </select>
         </label>
 
-        {scope === 'service' && (
+        {!canMute ? (
+          <p className="field-note">
+            Everything is already muted for this customer. Unmute something first
+            to change it.
+          </p>
+        ) : !canMuteService ? (
+          <p className="field-note">
+            This customer has nothing pending left to mute service by service.
+            Muting everything still covers reminders raised later.
+          </p>
+        ) : (
+          !canMuteAll && (
+            <p className="field-note">
+              A blanket mute is already in place for this customer, so only
+              individual services can be added.
+            </p>
+          )
+        )}
+
+        {scope === 'service' && canMuteService && canMute && (
           <label className="field">
             <span>Service</span>
             <select
@@ -84,7 +124,7 @@ export default function MuteDialog({
               <option value="">Choose a service</option>
               {services.map((service) => (
                 <option key={service.id} value={service.id}>
-                  {service.name_en}
+                  {service.name}
                 </option>
               ))}
             </select>
@@ -114,7 +154,11 @@ export default function MuteDialog({
           </p>
         )}
 
-        <button type="submit" className="btn btn--dark btn--full" disabled={saving}>
+        <button
+          type="submit"
+          className="btn btn--dark btn--full"
+          disabled={saving || !canMute}
+        >
           {saving ? 'Muting…' : 'Mute'}
         </button>
       </form>

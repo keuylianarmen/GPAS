@@ -7,12 +7,13 @@ import AddCustomerDialog from './components/AddCustomerDialog'
 import EditCustomerDialog from './components/EditCustomerDialog'
 import VehicleDialog from './components/VehicleDialog'
 import MuteDialog from './components/MuteDialog'
+import type { MutableService } from './components/MuteDialog'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
+import { vehicleLabel } from './lib/vehicle'
 
 type Customer = Database['public']['Tables']['customers']['Row']
 type Vehicle = Database['public']['Tables']['vehicles']['Row']
 type Job = Database['public']['Tables']['jobs']['Row']
-type Service = Database['public']['Tables']['services']['Row']
 type Mute = Database['public']['Views']['v_customer_mutes']['Row']
 type Staff = Database['public']['Tables']['staff']['Row']
 
@@ -221,7 +222,6 @@ function CustomerDetail({
   const [jobs, setJobs] = useState<Job[]>([])
   const [totals, setTotals] = useState<Map<string, number | null>>(new Map())
   const [mutes, setMutes] = useState<Mute[]>([])
-  const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
@@ -238,7 +238,7 @@ function CustomerDetail({
     async function load() {
       // Reminders hang off vehicles, not customers, so they ride along with
       // the vehicle query instead of costing a second round trip.
-      const [vehicleResult, jobResult, muteResult, serviceResult] = await Promise.all([
+      const [vehicleResult, jobResult, muteResult] = await Promise.all([
         supabase
           .from('vehicles')
           .select(
@@ -257,16 +257,11 @@ function CustomerDetail({
           .select('*')
           .eq('customer_id', customer.id)
           .order('muted_at', { ascending: false }),
-        supabase.from('services').select('*').eq('active', true).order('name_en'),
       ])
 
       if (cancelled) return
 
-      const failure =
-        vehicleResult.error ??
-        jobResult.error ??
-        muteResult.error ??
-        serviceResult.error
+      const failure = vehicleResult.error ?? jobResult.error ?? muteResult.error
       if (failure) {
         setError(failure.message)
         setLoading(false)
@@ -277,7 +272,6 @@ function CustomerDetail({
       setVehicles(vehicleResult.data ?? [])
       setJobs(loadedJobs)
       setMutes(muteResult.data ?? [])
-      setServices(serviceResult.data ?? [])
 
       // v_job_totals carries no customer_id, so it can only be keyed by job.
       if (loadedJobs.length > 0) {
@@ -342,6 +336,26 @@ function CustomerDetail({
     }
     setReloadToken((token) => token + 1)
   }
+
+  // Only services with a live pending reminder can usefully be muted, and
+  // muting one twice is a no-op, so anything already muted drops out.
+  const mutableServices = useMemo(() => {
+    const alreadyMuted = new Set(
+      mutes.flatMap((mute) => (mute.service_id === null ? [] : [mute.service_id])),
+    )
+
+    const distinct = new Map<string, MutableService>()
+    for (const { reminder } of pendingReminders) {
+      if (alreadyMuted.has(reminder.service_id)) continue
+      if (distinct.has(reminder.service_id)) continue
+      distinct.set(reminder.service_id, {
+        id: reminder.service_id,
+        name: reminder.services?.name_en ?? 'Unknown service',
+      })
+    }
+
+    return [...distinct.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [pendingReminders, mutes])
 
   return (
     <Dialog wide title={customerLabel(customer)} onClose={onClose}>
@@ -477,7 +491,7 @@ function CustomerDetail({
                       {reminder.services?.name_en ?? 'Unknown service'}
                     </div>
                     <div className="list-row-meta num">
-                      {vehicle.plate || 'No plate'}
+                      {vehicleLabel(vehicle)}
                     </div>
                   </div>
                   <div className="list-row-due">
@@ -585,7 +599,8 @@ function CustomerDetail({
         <MuteDialog
           customerId={customer.id}
           staffId={staff.id}
-          services={services}
+          services={mutableServices}
+          allMuted={mutes.some((mute) => mute.service_id === null)}
           onClose={() => setMuting(false)}
           onSaved={() => {
             setMuting(false)

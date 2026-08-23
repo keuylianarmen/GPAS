@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Database } from './types/database'
 import { supabase } from './lib/supabase'
-import { money } from './lib/format'
+import { km, money } from './lib/format'
 import { dueDefaults } from './lib/due'
 import { customerLabel } from './lib/customer'
+import { jobVehicleLabel, vehicleLabel } from './lib/vehicle'
 import { parseOptionalInteger, parseOptionalNumber } from './lib/parse'
+import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
+import type { OdometerWarning } from './lib/odometer'
 import Dialog from './components/Dialog'
+import VehicleDialog from './components/VehicleDialog'
 
 type Job = Database['public']['Tables']['jobs']['Row']
+type Vehicle = Database['public']['Tables']['vehicles']['Row']
 type JobItem = Database['public']['Tables']['job_items']['Row']
 type Service = Database['public']['Tables']['services']['Row']
 type Category = Database['public']['Tables']['service_categories']['Row']
@@ -17,7 +22,7 @@ type Staff = Database['public']['Tables']['staff']['Row']
 
 type JobRow = Job & {
   customers: { name_en: string | null; name_ar: string | null } | null
-  vehicles: { plate: string | null } | null
+  vehicles: { plate: string | null; make: string | null; model: string | null } | null
   job_items: { count: number }[]
 }
 
@@ -104,7 +109,7 @@ export default function Jobs({ staff }: { staff: Staff }) {
     async function load() {
       let query = supabase
         .from('jobs')
-        .select('*, customers(name_en, name_ar), vehicles(plate), job_items(count)')
+        .select('*, customers(name_en, name_ar), vehicles(plate, make, model), job_items(count)')
         .order('start_date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(LIST_LIMIT)
@@ -260,7 +265,10 @@ export default function Jobs({ staff }: { staff: Staff }) {
                   </div>
                   <div className="list-row-meta">
                     <span className="num">{job.start_date}</span> ·{' '}
-                    <span className="num">{job.vehicles?.plate || 'No vehicle'}</span> ·{' '}
+                    <span className="num">
+                      {jobVehicleLabel(job.vehicle_id, job.vehicles)}
+                    </span>{' '}
+                    ·{' '}
                     <span className="num">{job.job_items[0]?.count ?? 0}</span>{' '}
                     {(job.job_items[0]?.count ?? 0) === 1 ? 'line' : 'lines'}
                     {job.payment_method
@@ -310,6 +318,13 @@ export default function Jobs({ staff }: { staff: Staff }) {
 }
 
 /* Job detail ----------------------------------------------------------- */
+
+type VehicleChange = {
+  /** Pending reminders this job's lines raised on the vehicle being replaced. */
+  moving: number
+  /** What the old vehicle would read without this job — advisory, not applied. */
+  withoutJob: number | null
+}
 
 type ItemDraft = {
   key: string
@@ -362,18 +377,39 @@ function JobDialog({
   const [odometer, setOdometer] = useState(
     job.odometer === null ? '' : String(job.odometer),
   )
+  const [vehicleId, setVehicleId] = useState<string>(job.vehicle_id ?? '')
+  const [linkable, setLinkable] = useState<Vehicle[]>([])
   const [paymentMethod, setPaymentMethod] = useState(job.payment_method ?? '')
 
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [confirming, setConfirming] = useState<VehicleChange | null>(null)
+  const [preparing, setPreparing] = useState(false)
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null)
   const [nextKey, setNextKey] = useState(1)
 
   const serviceById = useMemo(
     () => new Map(services.map((service) => [service.id, service])),
     [services],
   )
+
+  useEffect(() => {
+    let cancelled = false
+    supabase
+      .from('vehicles')
+      .select('*')
+      .eq('customer_id', job.customer_id)
+      .order('created_at')
+      .then(({ data }) => {
+        if (!cancelled) setLinkable(data ?? [])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [job.customer_id])
 
   useEffect(() => {
     let cancelled = false
@@ -400,6 +436,10 @@ function JobDialog({
       cancelled = true
     }
   }, [job.id])
+
+  // Uses the pending vehicle, so linking one and correcting the reading in the
+  // same edit is checked against the vehicle it will actually be saved against.
+  const odometerWarning = useOdometerCheck(vehicleId || null, odometer)
 
   const jobOdometer = useMemo(() => {
     const parsed = parseOptionalInteger(odometer)
@@ -443,7 +483,57 @@ function JobDialog({
     })
   }
 
+  /**
+   * Changing or clearing a vehicle moves reminders and leaves the old vehicle's
+   * reading behind, so it is confirmed rather than saved straight away.
+   */
+  async function handleSaveClick() {
+    const nextVehicleId = vehicleId || null
+    if (nextVehicleId === job.vehicle_id || job.vehicle_id === null) {
+      await handleSave()
+      return
+    }
+
+    setError(null)
+    setPreparing(true)
+
+    const savedLineIds = drafts.flatMap((draft) => (draft.id ? [draft.id] : []))
+
+    let moving = 0
+    if (savedLineIds.length > 0) {
+      const { count, error: countError } = await supabase
+        .from('reminders')
+        .select('id', { count: 'exact', head: true })
+        .in('job_item_id', savedLineIds)
+        .eq('vehicle_id', job.vehicle_id)
+        .eq('status', 'pending')
+
+      if (countError) {
+        setError(countError.message)
+        setPreparing(false)
+        return
+      }
+      moving = count ?? 0
+    }
+
+    // What the old vehicle would read if this job had never been recorded.
+    const { data: withoutJob, error: rpcError } = await supabase.rpc(
+      'vehicle_odometer_without_job',
+      { p_vehicle_id: job.vehicle_id, p_job_id: job.id },
+    )
+
+    if (rpcError) {
+      setError(rpcError.message)
+      setPreparing(false)
+      return
+    }
+
+    setPreparing(false)
+    setConfirming({ moving, withoutJob: withoutJob ?? null })
+  }
+
   async function handleSave() {
+    setConfirming(null)
     const parsedOdometer = parseOptionalInteger(odometer)
     if (parsedOdometer === 'invalid') {
       setError('Odometer must be a whole number, or left blank.')
@@ -454,10 +544,21 @@ function JobDialog({
     setSaving(true)
     const failures: string[] = []
 
-    if (parsedOdometer !== job.odometer || (paymentMethod || null) !== job.payment_method) {
+    const nextVehicleId = vehicleId || null
+    if (
+      parsedOdometer !== job.odometer ||
+      (paymentMethod || null) !== job.payment_method ||
+      nextVehicleId !== job.vehicle_id
+    ) {
+      // Written before the lines below, so a line inserted in the same save
+      // sees the vehicle and its trigger can raise a reminder.
       const { error: jobError } = await supabase
         .from('jobs')
-        .update({ odometer: parsedOdometer, payment_method: paymentMethod || null })
+        .update({
+          odometer: parsedOdometer,
+          payment_method: paymentMethod || null,
+          vehicle_id: nextVehicleId,
+        })
         .eq('id', job.id)
       if (jobError) failures.push(`job details: ${jobError.message}`)
     }
@@ -546,10 +647,30 @@ function JobDialog({
         </div>
         <div className="detail-since">
           <span className="num">{job.start_date}</span> ·{' '}
-          <span className="num">{job.vehicles?.plate || 'No vehicle'}</span> · {job.status}
+          <span className="num">{jobVehicleLabel(job.vehicle_id, job.vehicles)}</span> ·{' '}
+          {job.status}
           {edited && <span className="job-edited"> · edited {edited}</span>}
         </div>
       </div>
+
+      <label className="field field--narrow">
+        <span>Vehicle</span>
+        <select
+          value={vehicleId}
+          onChange={(event) => {
+            setVehicleId(event.target.value)
+            setConfirming(null)
+          }}
+          disabled={saving}
+        >
+          <option value="">No vehicle</option>
+          {linkable.map((vehicle) => (
+            <option key={vehicle.id} value={vehicle.id}>
+              {vehicleLabel(vehicle)}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <div className="grid-2">
         <label className="field">
@@ -581,6 +702,10 @@ function JobDialog({
         </label>
       </div>
 
+      {odometerWarning && (
+        <p className="field-warning">{ODOMETER_WARNINGS[odometerWarning]}</p>
+      )}
+
       <div className="section-label">
         <span>Lines</span>
       </div>
@@ -593,8 +718,12 @@ function JobDialog({
         drafts.map((draft) => {
           const service = serviceById.get(draft.serviceId)
           const remindable = service?.triggers_reminder ?? false
-          const noReminder =
-            remindable && !draft.nextDueKm.trim() && !draft.nextDueDate.trim()
+          const hasDue =
+            draft.nextDueKm.trim() !== '' || draft.nextDueDate.trim() !== ''
+          const noReminder = remindable && !hasDue
+          // Reminders need a vehicle. Saved lines included: the swap trigger
+          // raises them for every line when a vehicle is attached.
+          const wontCreate = remindable && hasDue && vehicleId === ''
 
           return (
             <div className="card line" key={draft.key}>
@@ -696,6 +825,12 @@ function JobDialog({
                       Both due fields are empty, so this line carries no reminder.
                     </p>
                   )}
+                  {wontCreate && (
+                    <p className="line-flag">
+                      This job has no vehicle, so this line carries no reminder.
+                      Attaching one raises it.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -713,6 +848,34 @@ function JobDialog({
           Add line
         </button>
       </div>
+
+      {confirming && (
+        <VehicleChangeConfirm
+          change={confirming}
+          oldVehicle={linkable.find((row) => row.id === job.vehicle_id) ?? null}
+          newVehicle={linkable.find((row) => row.id === vehicleId) ?? null}
+          reading={odometer}
+          odometerWarning={odometerWarning}
+          busy={saving}
+          onEditOldVehicle={(vehicle) => setEditingVehicle(vehicle)}
+          onCancel={() => setConfirming(null)}
+          onConfirm={handleSave}
+        />
+      )}
+
+      {editingVehicle && (
+        <VehicleDialog
+          customerId={job.customer_id}
+          vehicle={editingVehicle}
+          onClose={() => setEditingVehicle(null)}
+          onSaved={(updated) => {
+            setLinkable((current) =>
+              current.map((row) => (row.id === updated.id ? updated : row)),
+            )
+            setEditingVehicle(null)
+          }}
+        />
+      )}
 
       {error && (
         <p className="error" role="alert">
@@ -759,12 +922,139 @@ function JobDialog({
         <button
           type="button"
           className="btn btn--dark"
-          onClick={handleSave}
-          disabled={saving || !loaded}
+          onClick={handleSaveClick}
+          disabled={saving || preparing || !loaded}
         >
-          {saving ? 'Saving…' : 'Save changes'}
+          {saving ? 'Saving…' : preparing ? 'Checking…' : 'Save changes'}
         </button>
       </div>
     </Dialog>
+  )
+}
+
+/* Vehicle change confirmation ------------------------------------------ */
+
+function reading(value: number | null): string {
+  return value === null ? 'not recorded' : `${km(value)} km`
+}
+
+function VehicleChangeConfirm({
+  change,
+  oldVehicle,
+  newVehicle,
+  reading: jobReading,
+  odometerWarning,
+  busy,
+  onEditOldVehicle,
+  onCancel,
+  onConfirm,
+}: {
+  change: VehicleChange
+  oldVehicle: Vehicle | null
+  newVehicle: Vehicle | null
+  reading: string
+  odometerWarning: OdometerWarning | null
+  busy: boolean
+  onEditOldVehicle: (vehicle: Vehicle) => void
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const clearing = newVehicle === null
+  const oldLabel = oldVehicle ? vehicleLabel(oldVehicle) : 'the previous vehicle'
+  const parsedReading = parseOptionalInteger(jobReading)
+
+  return (
+    <div className="card notice confirm-panel">
+      <p className="confirm-title">
+        {clearing
+          ? `Remove ${oldLabel} from this job?`
+          : `Move this job to ${vehicleLabel(newVehicle)}?`}
+      </p>
+
+      <p>
+        {change.moving === 0 ? (
+          <>No pending reminders were raised by this job&rsquo;s lines.</>
+        ) : clearing ? (
+          <>
+            <span className="num">{change.moving}</span> pending{' '}
+            {change.moving === 1 ? 'reminder' : 'reminders'} raised by this
+            job&rsquo;s lines will be cancelled.
+          </>
+        ) : (
+          <>
+            <span className="num">{change.moving}</span> pending{' '}
+            {change.moving === 1 ? 'reminder' : 'reminders'} will move from{' '}
+            {oldLabel} to {vehicleLabel(newVehicle)}.
+          </>
+        )}
+      </p>
+
+      {!clearing && (
+        <div className="confirm-figures">
+          <div className="summary-row">
+            <span className="muted">{vehicleLabel(newVehicle)} reads</span>
+            <span className="num">{reading(newVehicle.current_odometer)}</span>
+          </div>
+          <div className="summary-row">
+            <span className="muted">This job records</span>
+            <span className="num">
+              {parsedReading === 'invalid' || parsedReading === null
+                ? 'not recorded'
+                : `${km(parsedReading)} km`}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {odometerWarning && !clearing && (
+        <p className="field-warning">{ODOMETER_WARNINGS[odometerWarning]}</p>
+      )}
+
+      {oldVehicle && (
+        <>
+          <div className="confirm-figures">
+            <div className="summary-row">
+              <span className="muted">{oldLabel} reads</span>
+              <span className="num">{reading(oldVehicle.current_odometer)}</span>
+            </div>
+            <div className="summary-row">
+              <span className="muted">Without this job it would read</span>
+              <span className="num">{reading(change.withoutJob)}</span>
+            </div>
+          </div>
+          <p className="field-note">
+            That reading is not rolled back — it may have been typed by hand.
+            Change it yourself if it is wrong.
+          </p>
+          <button
+            type="button"
+            className="btn btn--ghost btn--small"
+            onClick={() => onEditOldVehicle(oldVehicle)}
+            disabled={busy}
+          >
+            Edit {oldLabel}
+          </button>
+        </>
+      )}
+
+      <div className="confirm-row">
+        <button
+          type="button"
+          className="btn btn--dark btn--small"
+          onClick={onConfirm}
+          disabled={busy}
+        >
+          {busy ? 'Saving…' : clearing ? 'Remove and save' : 'Move and save'}
+        </button>
+        <button
+          type="button"
+          className="btn btn--quiet btn--small"
+          onClick={onCancel}
+          disabled={busy}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   )
 }

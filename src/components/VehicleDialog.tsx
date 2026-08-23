@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
+import { ODOMETER_WARNINGS, useOdometerCheck } from '../lib/odometer'
 import Dialog from './Dialog'
 import VehicleFields from './VehicleFields'
 import {
@@ -33,6 +34,9 @@ export default function VehicleDialog({
   )
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // Only meaningful once the vehicle exists; a new one has nothing to compare to.
+  const odometerWarning = useOdometerCheck(vehicle?.id ?? null, draft.odometer)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -101,7 +105,11 @@ export default function VehicleDialog({
           draft={draft}
           onChange={setDraft}
           disabled={saving}
-          showOdometer={!editing}
+          odometerNote={
+            odometerWarning && (
+              <p className="field-warning">{ODOMETER_WARNINGS[odometerWarning]}</p>
+            )
+          }
         />
         {error && (
           <p className="error" role="alert">

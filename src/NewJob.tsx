@@ -5,7 +5,9 @@ import { km, money } from './lib/format'
 import { todayIso } from './lib/date'
 import { dueDefaults } from './lib/due'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
+import { jobVehicleLabel } from './lib/vehicle'
 import { parseOptionalInteger, parseOptionalNumber } from './lib/parse'
+import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import Dialog from './components/Dialog'
 import AddCustomerDialog from './components/AddCustomerDialog'
 import AddServiceDialog from './components/AddServiceDialog'
@@ -151,6 +153,8 @@ export default function NewJob() {
     customer !== null && vehicleLoad !== null && vehicleLoad.customerId === customer.id
   const vehicles = vehiclesReady ? vehicleLoad.rows : []
   const vehiclesLoading = customer !== null && !vehiclesReady
+
+  const odometerWarning = useOdometerCheck(vehicleId, odometer)
 
   const jobOdometer = useMemo(() => {
     const parsed = parseOptionalInteger(odometer)
@@ -444,18 +448,23 @@ export default function NewJob() {
           )}
 
           {vehicleId !== null && (
-            <label className="field field--narrow">
-              <span>
-                Odometer today <span className="field-hint">km</span>
-              </span>
-              <input
-                className="num"
-                inputMode="numeric"
-                value={odometer}
-                onChange={(event) => setOdometer(event.target.value)}
-                placeholder="84210"
-              />
-            </label>
+            <>
+              <label className="field field--narrow">
+                <span>
+                  Odometer today <span className="field-hint">km</span>
+                </span>
+                <input
+                  className="num"
+                  inputMode="numeric"
+                  value={odometer}
+                  onChange={(event) => setOdometer(event.target.value)}
+                  placeholder="84210"
+                />
+              </label>
+              {odometerWarning && (
+                <p className="field-warning">{ODOMETER_WARNINGS[odometerWarning]}</p>
+              )}
+            </>
           )}
         </section>
       )}
@@ -478,8 +487,11 @@ export default function NewJob() {
           {lines.map((line) => {
             const service = serviceById.get(line.serviceId)
             const remindable = service?.triggers_reminder ?? false
-            const noReminder =
-              remindable && !line.nextDueKm.trim() && !line.nextDueDate.trim()
+            const hasDue =
+              line.nextDueKm.trim() !== '' || line.nextDueDate.trim() !== ''
+            const noReminder = remindable && !hasDue
+            // The reminder trigger needs a vehicle; the vehicle step is optional.
+            const wontCreate = remindable && hasDue && vehicleId === null
 
             return (
               <div className="card line" key={line.key}>
@@ -581,6 +593,12 @@ export default function NewJob() {
                         this line.
                       </p>
                     )}
+                    {wontCreate && (
+                      <p className="line-flag">
+                        No vehicle was picked for this job, so no reminder will be
+                        created. Go back to the vehicle step to add one.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -631,9 +649,10 @@ export default function NewJob() {
             <div className="summary-row">
               <span className="muted">Vehicle</span>
               <span className="num">
-                {vehicleId
-                  ? vehicles.find((row) => row.id === vehicleId)?.plate || 'No plate'
-                  : 'None'}
+                {jobVehicleLabel(
+                  vehicleId,
+                  vehicles.find((row) => row.id === vehicleId),
+                )}
               </span>
             </div>
             {jobOdometer !== null && (
