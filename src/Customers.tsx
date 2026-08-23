@@ -24,11 +24,16 @@ type CustomerListItem = Customer & { vehicleCount: number; jobCount: number }
 export default function Customers({ staff }: { staff: Staff }) {
   const [customers, setCustomers] = useState<CustomerListItem[]>([])
   const [health, setHealth] = useState<Map<string, ContactHealth>>(new Map())
+  const [fleetMakes, setFleetMakes] = useState<string[]>([])
+  const [makesByCustomer, setMakesByCustomer] = useState<Map<string, Set<string>>>(
+    new Map(),
+  )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
 
   const [query, setQuery] = useState('')
+  const [makeFilter, setMakeFilter] = useState('')
   const [openCustomer, setOpenCustomer] = useState<CustomerListItem | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -37,22 +42,46 @@ export default function Customers({ staff }: { staff: Staff }) {
 
     async function load() {
       // Counted in Postgres rather than by pulling every vehicle and job row.
-      const [customerResult, healthResult] = await Promise.all([
-        supabase
-          .from('customers')
-          .select('*, vehicles(count), jobs(count)')
-          .order('created_at', { ascending: false }),
-        supabase.from('v_customer_contact_health').select('*'),
-      ])
+      const [customerResult, healthResult, fleetResult, vehicleResult] =
+        await Promise.all([
+          supabase
+            .from('customers')
+            .select('*, vehicles(count), jobs(count)')
+            .order('created_at', { ascending: false }),
+          supabase.from('v_customer_contact_health').select('*'),
+          // Only makes actually in the fleet, commonest first.
+          supabase
+            .from('v_fleet_by_make')
+            .select('make, vehicles')
+            .order('vehicles', { ascending: false }),
+          supabase.from('vehicles').select('customer_id, make'),
+        ])
 
       if (cancelled) return
 
-      const loadError = customerResult.error ?? healthResult.error
+      const loadError =
+        customerResult.error ??
+        healthResult.error ??
+        fleetResult.error ??
+        vehicleResult.error
       if (loadError) {
         setError(loadError.message)
         setLoading(false)
         return
       }
+
+      setFleetMakes(
+        (fleetResult.data ?? []).flatMap((row) => (row.make ? [row.make] : [])),
+      )
+
+      const byCustomer = new Map<string, Set<string>>()
+      for (const row of vehicleResult.data ?? []) {
+        if (!row.make) continue
+        const existing = byCustomer.get(row.customer_id)
+        if (existing) existing.add(row.make)
+        else byCustomer.set(row.customer_id, new Set([row.make]))
+      }
+      setMakesByCustomer(byCustomer)
 
       const data = customerResult.data
       setHealth(
@@ -81,8 +110,13 @@ export default function Customers({ staff }: { staff: Staff }) {
   }, [reloadToken])
 
   const visible = useMemo(
-    () => customers.filter((customer) => matchesCustomerSearch(customer, query)),
-    [customers, query],
+    () =>
+      customers.filter(
+        (customer) =>
+          matchesCustomerSearch(customer, query) &&
+          (!makeFilter || makesByCustomer.get(customer.id)?.has(makeFilter) === true),
+      ),
+    [customers, query, makeFilter, makesByCustomer],
   )
 
   if (loading) {
@@ -122,6 +156,20 @@ export default function Customers({ staff }: { staff: Staff }) {
             aria-label="Search customers"
           />
         </div>
+        <label className="field toolbar-field">
+          <span>Make</span>
+          <select
+            value={makeFilter}
+            onChange={(event) => setMakeFilter(event.target.value)}
+          >
+            <option value="">Any make</option>
+            {fleetMakes.map((make) => (
+              <option key={make} value={make}>
+                {make}
+              </option>
+            ))}
+          </select>
+        </label>
         <button type="button" className="btn btn--dark" onClick={() => setAdding(true)}>
           Add customer
         </button>
@@ -130,7 +178,13 @@ export default function Customers({ staff }: { staff: Staff }) {
       {customers.length === 0 ? (
         <p className="empty">No customers yet.</p>
       ) : visible.length === 0 ? (
-        <p className="empty">No customer matches “{query.trim()}”.</p>
+        <p className="empty">
+          {makeFilter && !query.trim()
+            ? `No customer has a ${makeFilter}.`
+            : makeFilter
+              ? `No ${makeFilter} owner matches “${query.trim()}”.`
+              : `No customer matches “${query.trim()}”.`}
+        </p>
       ) : (
         <div className="customer-grid">
           {visible.map((customer) => (

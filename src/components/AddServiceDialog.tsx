@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import { parseOptionalNumber, parseOptionalPositiveInteger } from '../lib/parse'
+import { useLookupListKeys } from '../lib/useLookupListKeys'
 import Dialog from './Dialog'
 
 type Category = Database['public']['Tables']['service_categories']['Row']
@@ -32,8 +33,14 @@ export default function AddServiceDialog({
   const [remind, setRemind] = useState(false)
   const [reminderKm, setReminderKm] = useState('')
   const [reminderMonths, setReminderMonths] = useState('')
+  const [usesFluid, setUsesFluid] = useState(false)
+  const [fluidUnit, setFluidUnit] = useState('liters')
+  const [fluidTypeList, setFluidTypeList] = useState('')
+  const [fluidGradeList, setFluidGradeList] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  const listKeys = useLookupListKeys()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -89,6 +96,10 @@ export default function AddServiceDialog({
         triggers_reminder: remind,
         reminder_km: intervalKm,
         reminder_months: intervalMonths,
+        // Null unit is what marks a service as not using a fluid.
+        fluid_unit: usesFluid ? fluidUnit : null,
+        fluid_type_list: usesFluid && fluidTypeList ? fluidTypeList : null,
+        fluid_grade_list: usesFluid && fluidGradeList ? fluidGradeList : null,
       })
       .select()
       .single()
@@ -195,6 +206,72 @@ export default function AddServiceDialog({
             <p className="field-note">
               Used to prefill the due point when this service is added to a job.
               The job line is what actually creates the reminder.
+            </p>
+          </>
+        )}
+
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={usesFluid}
+            onChange={(event) => setUsesFluid(event.target.checked)}
+            disabled={saving}
+          />
+          This service uses a fluid
+        </label>
+
+        {usesFluid && (
+          <>
+            <div className="grid-2">
+              <label className="field">
+                <span>Measured in</span>
+                <select
+                  value={fluidUnit}
+                  onChange={(event) => setFluidUnit(event.target.value)}
+                  disabled={saving}
+                >
+                  <option value="liters">Liters</option>
+                  <option value="grams">Grams</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>
+                  Type list <span className="field-hint">optional</span>
+                </span>
+                <select
+                  value={fluidTypeList}
+                  onChange={(event) => setFluidTypeList(event.target.value)}
+                  disabled={saving}
+                >
+                  <option value="">No standard list</option>
+                  {listKeys.map((key) => (
+                    <option key={key} value={key}>
+                      {key}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="field">
+              <span>
+                Grade list <span className="field-hint">optional</span>
+              </span>
+              <select
+                value={fluidGradeList}
+                onChange={(event) => setFluidGradeList(event.target.value)}
+                disabled={saving}
+              >
+                <option value="">No grade list</option>
+                {listKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {key}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="field-note">
+              Job lines for this service will ask for brand and quantity, plus a
+              type or grade wherever a list is chosen.
             </p>
           </>
         )}

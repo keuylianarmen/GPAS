@@ -244,7 +244,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           invoice_no?: string | null
-          job_no?: never
+          job_no?: number
           job_type?: Database["public"]["Enums"]["job_type"]
           notes?: string | null
           odometer?: number | null
@@ -265,7 +265,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           invoice_no?: string | null
-          job_no?: never
+          job_no?: number
           job_type?: Database["public"]["Enums"]["job_type"]
           notes?: string | null
           odometer?: number | null
@@ -764,6 +764,9 @@ export type Database = {
           created_at: string
           default_labor_price: number | null
           est_minutes: number | null
+          fluid_grade_list: string | null
+          fluid_type_list: string | null
+          fluid_unit: string | null
           id: string
           name_ar: string | null
           name_en: string
@@ -781,6 +784,9 @@ export type Database = {
           created_at?: string
           default_labor_price?: number | null
           est_minutes?: number | null
+          fluid_grade_list?: string | null
+          fluid_type_list?: string | null
+          fluid_unit?: string | null
           id?: string
           name_ar?: string | null
           name_en: string
@@ -798,6 +804,9 @@ export type Database = {
           created_at?: string
           default_labor_price?: number | null
           est_minutes?: number | null
+          fluid_grade_list?: string | null
+          fluid_type_list?: string | null
+          fluid_unit?: string | null
           id?: string
           name_ar?: string | null
           name_en?: string
@@ -1083,6 +1092,51 @@ export type Database = {
         }
         Relationships: []
       }
+      v_fleet_by_make: {
+        Row: {
+          customers: number | null
+          jobs: number | null
+          last_seen: string | null
+          make: string | null
+          vehicles: number | null
+        }
+        Relationships: []
+      }
+      v_fluid_brands: {
+        Row: {
+          brand: string | null
+          service_id: string | null
+          uses: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+        ]
+      }
+      v_fluid_usage: {
+        Row: {
+          brand: string | null
+          jobs: number | null
+          month: string | null
+          quantity: number | null
+          service: string | null
+          type: string | null
+          unit: string | null
+        }
+        Relationships: []
+      }
       v_job_items: {
         Row: {
           category_id: number | null
@@ -1315,6 +1369,14 @@ export type Database = {
           phone: string | null
           plate: string | null
           whatsapp_opt_in: boolean | null
+        }
+        Relationships: []
+      }
+      v_vehicle_models: {
+        Row: {
+          make: string | null
+          model: string | null
+          uses: number | null
         }
         Relationships: []
       }

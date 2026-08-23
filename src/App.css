@@ -1150,3 +1150,156 @@
 .dash-health-head {
   margin-top: 4px;
 }
+
+/* The job number leads the row but is only an identifier — the customer is
+   what the row is about. Kept prominent in the dialog header. */
+.job-row-no {
+  margin-inline-end: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.field--tight {
+  margin-bottom: 4px;
+}
+
+.field-action {
+  margin-bottom: 14px;
+  padding-inline: 0;
+}
+
+/* Line prices — three small numbers on one row, not three form rows. */
+
+.prices {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.price {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 92px;
+}
+
+.price > span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.price input {
+  width: 100%;
+  padding: 7px 9px;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.price input:focus {
+  border-color: var(--ink);
+}
+
+.price input:disabled {
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.price--total {
+  padding-inline-start: 10px;
+  border-inline-start: 1px solid var(--hairline);
+}
+
+.price--total .num {
+  padding: 7px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.line-sub {
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Reading a next-due distance is measured against. */
+
+.odo-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.odo-gap {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* At or below the current reading: already past, so almost certainly a typo. */
+.odo-gap--warn {
+  color: var(--amber);
+}
+
+/* Fluid capture — one compact row beside the prices, not a form per line. */
+
+.fluids {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--hairline);
+}
+
+.fluid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 110px;
+}
+
+.fluid--wide {
+  width: 150px;
+}
+
+.fluid > span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.fluid input,
+.fluid select {
+  width: 100%;
+  padding: 7px 9px;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.fluid select {
+  cursor: pointer;
+}
+
+.fluid input:focus,
+.fluid select:focus {
+  border-color: var(--ink);
+}
+
+.fluid input:disabled,
+.fluid select:disabled {
+  color: var(--muted);
+  background: var(--surface);
+}

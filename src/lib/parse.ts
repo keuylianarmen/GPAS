@@ -22,3 +22,14 @@ export function parseOptionalPositiveInteger(
   if (parsed === 'invalid' || parsed === null) return parsed
   return parsed > 0 ? parsed : 'invalid'
 }
+
+/** A price input's numeric value; blank and unparseable both mean zero. */
+export function priceValue(raw: string): number {
+  const parsed = parseOptionalNumber(raw)
+  return parsed === 'invalid' || parsed === null ? 0 : parsed
+}
+
+/** Line total across the parts, labour and sub fields. */
+export function sumPrices(...raw: string[]): number {
+  return raw.reduce((total, value) => total + priceValue(value), 0)
+}

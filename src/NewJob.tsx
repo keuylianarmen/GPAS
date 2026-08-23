@@ -4,11 +4,17 @@ import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
 import { todayIso } from './lib/date'
 import { dueDefaults } from './lib/due'
+import { emptyFluidDraft, fluidDetails, hasFluidValues, usesFluid } from './lib/fluid'
+import type { FluidDraft } from './lib/fluid'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
 import { jobVehicleLabel } from './lib/vehicle'
-import { parseOptionalInteger, parseOptionalNumber } from './lib/parse'
+import { parseOptionalInteger, priceValue, sumPrices } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import Dialog from './components/Dialog'
+import PriceFields from './components/PriceFields'
+import FluidFields from './components/FluidFields'
+import OdometerHint from './components/OdometerHint'
+import type { OdometerReference } from './components/OdometerHint'
 import AddCustomerDialog from './components/AddCustomerDialog'
 import AddServiceDialog from './components/AddServiceDialog'
 import VehicleFields from './components/VehicleFields'
@@ -29,9 +35,12 @@ type PaymentMethod = Database['public']['Tables']['lookup_values']['Row']
 type Line = {
   key: number
   serviceId: string
+  partPrice: string
   laborPrice: string
+  subPrice: string
   nextDueKm: string
   nextDueDate: string
+  fluid: FluidDraft
 }
 
 const STEPS = ['Customer', 'Vehicle', 'Services', 'Payment'] as const
@@ -151,7 +160,11 @@ export default function NewJob() {
 
   const vehiclesReady =
     customer !== null && vehicleLoad !== null && vehicleLoad.customerId === customer.id
-  const vehicles = vehiclesReady ? vehicleLoad.rows : []
+  // Memoised so its identity is stable for the hooks that depend on it.
+  const vehicles = useMemo(
+    () => (vehiclesReady && vehicleLoad !== null ? vehicleLoad.rows : []),
+    [vehiclesReady, vehicleLoad],
+  )
   const vehiclesLoading = customer !== null && !vehiclesReady
 
   const odometerWarning = useOdometerCheck(vehicleId, odometer)
@@ -160,6 +173,15 @@ export default function NewJob() {
     const parsed = parseOptionalInteger(odometer)
     return parsed === 'invalid' ? null : parsed
   }, [odometer])
+
+  // The job's own reading wins; the vehicle's standing reading is the fallback.
+  const odometerReference: OdometerReference = useMemo(() => {
+    if (jobOdometer !== null) return { value: jobOdometer, source: 'job' }
+    const vehicle = vehicles.find((row) => row.id === vehicleId)
+    return vehicle?.current_odometer == null
+      ? null
+      : { value: vehicle.current_odometer, source: 'vehicle' }
+  }, [jobOdometer, vehicles, vehicleId])
 
   const serviceById = useMemo(
     () => new Map(services.map((service) => [service.id, service])),
@@ -173,10 +195,10 @@ export default function NewJob() {
 
   const filledLines = lines.filter((line) => line.serviceId !== '')
 
-  const lineTotal = filledLines.reduce((sum, line) => {
-    const parsed = parseOptionalNumber(line.laborPrice)
-    return sum + (parsed === 'invalid' || parsed === null ? 0 : parsed)
-  }, 0)
+  const linesTotal = filledLines.reduce(
+    (sum, line) => sum + sumPrices(line.partPrice, line.laborPrice, line.subPrice),
+    0,
+  )
 
   /** Prefills come from the service's usual interval plus this job's readings. */
   function applyService(line: Line, serviceId: string): Line {
@@ -184,8 +206,12 @@ export default function NewJob() {
     return {
       ...line,
       serviceId,
+      partPrice: '',
       laborPrice:
         service?.default_labor_price == null ? '' : String(service.default_labor_price),
+      subPrice: '',
+      // A different service means a different fluid, so start clean.
+      fluid: emptyFluidDraft(),
       ...dueDefaults(service, jobOdometer, todayIso()),
     }
   }
@@ -194,9 +220,12 @@ export default function NewJob() {
     const base: Line = {
       key: nextLineKey.current++,
       serviceId: '',
+      partPrice: '',
       laborPrice: '',
+      subPrice: '',
       nextDueKm: '',
       nextDueDate: '',
+      fluid: emptyFluidDraft(),
     }
     setLines((current) => [...current, serviceId ? applyService(base, serviceId) : base])
   }
@@ -261,12 +290,15 @@ export default function NewJob() {
       // the reminders table itself.
       const { error } = await supabase.from('job_items').insert(
         filledLines.map((line) => {
-          const price = parseOptionalNumber(line.laborPrice)
           const dueKm = parseOptionalInteger(line.nextDueKm)
+          const details = fluidDetails(line.fluid)
           return {
             job_id: job.id,
+            ...(hasFluidValues(details) ? { details } : {}),
             service_id: line.serviceId,
-            labor_price: price === 'invalid' || price === null ? 0 : price,
+            part_price: priceValue(line.partPrice),
+            labor_price: priceValue(line.laborPrice),
+            sub_price: priceValue(line.subPrice),
             next_due_odometer: dueKm === 'invalid' ? null : dueKm,
             next_due_date: line.nextDueDate || null,
             status: 'done' as const,
@@ -529,19 +561,6 @@ export default function NewJob() {
                     </select>
                   </label>
 
-                  <label className="field field--narrow">
-                    <span>Labour</span>
-                    <input
-                      className="num"
-                      inputMode="decimal"
-                      value={line.laborPrice}
-                      onChange={(event) =>
-                        updateLine(line.key, { laborPrice: event.target.value })
-                      }
-                      placeholder="0.000"
-                    />
-                  </label>
-
                   <button
                     type="button"
                     className="btn btn--quiet btn--small"
@@ -552,6 +571,21 @@ export default function NewJob() {
                     Remove
                   </button>
                 </div>
+
+                <PriceFields
+                  partPrice={line.partPrice}
+                  laborPrice={line.laborPrice}
+                  subPrice={line.subPrice}
+                  onChange={(field, next) => updateLine(line.key, { [field]: next })}
+                />
+
+                {service && usesFluid(service) && (
+                  <FluidFields
+                    service={service}
+                    draft={line.fluid}
+                    onChange={(next) => updateLine(line.key, { fluid: next })}
+                  />
+                )}
 
                 {!line.serviceId && (
                   <p className="line-note muted">
@@ -573,6 +607,10 @@ export default function NewJob() {
                           onChange={(event) =>
                             updateLine(line.key, { nextDueKm: event.target.value })
                           }
+                        />
+                        <OdometerHint
+                          reference={odometerReference}
+                          entered={line.nextDueKm}
                         />
                       </label>
                       <label className="field">
@@ -669,25 +707,20 @@ export default function NewJob() {
                 <div className="summary-row" key={line.key}>
                   <span>{serviceById.get(line.serviceId)?.name_en ?? 'Service'}</span>
                   <span className="num">
-                    {money(
-                      (() => {
-                        const parsed = parseOptionalNumber(line.laborPrice)
-                        return parsed === 'invalid' || parsed === null ? 0 : parsed
-                      })(),
-                    )}
+                    {money(sumPrices(line.partPrice, line.laborPrice, line.subPrice))}
                   </span>
                 </div>
               ))
             )}
 
             <div className="summary-row summary-total">
-              <span>Labour total</span>
-              <span className="num">{money(lineTotal)}</span>
+              <span>Lines total</span>
+              <span className="num">{money(linesTotal)}</span>
             </div>
           </div>
 
           <p className="field-note">
-            Parts and tax are not included here — the saved total comes from the
+            Tax and discount are not applied here — the saved total comes from the
             job totals view.
           </p>
 

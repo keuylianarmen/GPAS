@@ -1,7 +1,10 @@
+import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { VehicleDraft } from '../lib/vehicle'
 import { useLookup } from '../lib/useLookup'
+import { useVehicleModels } from '../lib/useVehicleModels'
 import LookupSelect from './LookupSelect'
+import AddMakeDialog from './AddMakeDialog'
 
 export default function VehicleFields({
   draft,
@@ -16,6 +19,10 @@ export default function VehicleFields({
   odometerNote?: ReactNode
 }) {
   const categories = useLookup('vehicle_category')
+  const makes = useLookup('vehicle_make')
+  const models = useVehicleModels(draft.make)
+  const modelListId = useId()
+  const [addingMake, setAddingMake] = useState(false)
 
   function set(field: keyof VehicleDraft) {
     return (event: { target: { value: string } }) =>
@@ -47,15 +54,56 @@ export default function VehicleFields({
       </div>
 
       <div className="grid-2">
-        <label className="field">
-          <span>Make</span>
-          <input value={draft.make} onChange={set('make')} disabled={disabled} />
-        </label>
+        <div>
+          <label className="field field--tight">
+            <span>Make</span>
+            <LookupSelect
+              value={draft.make}
+              options={makes}
+              // vehicles.make is free text holding the display name, so the
+              // label is stored rather than the list's key.
+              store="label_en"
+              onChange={(next) => onChange({ ...draft, make: next, model: '' })}
+              disabled={disabled}
+              blankLabel="Not set"
+            />
+          </label>
+          <button
+            type="button"
+            className="btn btn--quiet btn--small field-action"
+            onClick={() => setAddingMake(true)}
+            disabled={disabled}
+          >
+            Add a make
+          </button>
+        </div>
         <label className="field">
           <span>Model</span>
-          <input value={draft.model} onChange={set('model')} disabled={disabled} />
+          <input
+            value={draft.model}
+            onChange={set('model')}
+            list={modelListId}
+            disabled={disabled}
+          />
+          {/* Typeahead over models already entered for this make; anything can
+              still be typed. */}
+          <datalist id={modelListId}>
+            {models.map((model) => (
+              <option key={model} value={model} />
+            ))}
+          </datalist>
         </label>
       </div>
+
+      {addingMake && (
+        <AddMakeDialog
+          onClose={() => setAddingMake(false)}
+          onSaved={(label) => {
+            onChange({ ...draft, make: label, model: '' })
+            setAddingMake(false)
+          }}
+        />
+      )}
 
       <div className="grid-2">
         <label className="field">

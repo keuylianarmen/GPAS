@@ -1,14 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Database } from './types/database'
+import type { Database, Json } from './types/database'
 import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
 import { dueDefaults } from './lib/due'
+import {
+  emptyFluidDraft,
+  fluidDetails,
+  fluidDraftFromDetails,
+  hasFluidValues,
+  mergeFluidDetails,
+  sameFluid,
+  usesFluid,
+} from './lib/fluid'
+import type { FluidDraft } from './lib/fluid'
 import { customerLabel } from './lib/customer'
 import { jobVehicleLabel, vehicleLabel } from './lib/vehicle'
-import { parseOptionalInteger, parseOptionalNumber } from './lib/parse'
+import { parseOptionalInteger, priceValue } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import type { OdometerWarning } from './lib/odometer'
 import Dialog from './components/Dialog'
+import PriceFields from './components/PriceFields'
+import FluidFields from './components/FluidFields'
+import OdometerHint from './components/OdometerHint'
+import type { OdometerReference } from './components/OdometerHint'
 import VehicleDialog from './components/VehicleDialog'
 
 type Job = Database['public']['Tables']['jobs']['Row']
@@ -258,7 +272,7 @@ export default function Jobs({ staff }: { staff: Staff }) {
               >
                 <div className="job-row-main">
                   <div className="job-row-title">
-                    <span className="num">#{job.job_no}</span>{' '}
+                    <span className="num job-row-no">#{job.job_no}</span>
                     <span dir="auto">
                       {job.customers ? customerLabel(job.customers) : 'Unknown customer'}
                     </span>
@@ -330,27 +344,44 @@ type ItemDraft = {
   key: string
   id: string | null
   serviceId: string
+  partPrice: string
   laborPrice: string
+  subPrice: string
   nextDueKm: string
   nextDueDate: string
+  fluid: FluidDraft
+  /** The line's stored details, so a save preserves keys this screen does not edit. */
+  details: Json
+  /** Display only for now — the line's subcontractor is not editable here. */
+  subcontractor: string | null
 }
 
-function draftFromItem(item: JobItem): ItemDraft {
+type JobItemWithSub = JobItem & { subcontractors: { name: string } | null }
+
+function draftFromItem(item: JobItemWithSub): ItemDraft {
   return {
     key: item.id,
     id: item.id,
     serviceId: item.service_id,
-    laborPrice: item.labor_price === null ? '' : String(item.labor_price),
+    partPrice: String(item.part_price ?? 0),
+    laborPrice: String(item.labor_price ?? 0),
+    subPrice: String(item.sub_price ?? 0),
     nextDueKm: item.next_due_odometer === null ? '' : String(item.next_due_odometer),
     nextDueDate: item.next_due_date ?? '',
+    fluid: fluidDraftFromDetails(item.details),
+    details: item.details,
+    subcontractor: item.subcontractors?.name ?? null,
   }
 }
 
 function sameDraft(a: ItemDraft, b: ItemDraft): boolean {
   return (
+    a.partPrice === b.partPrice &&
     a.laborPrice === b.laborPrice &&
+    a.subPrice === b.subPrice &&
     a.nextDueKm === b.nextDueKm &&
-    a.nextDueDate === b.nextDueDate
+    a.nextDueDate === b.nextDueDate &&
+    sameFluid(a.fluid, b.fluid)
   )
 }
 
@@ -416,7 +447,7 @@ function JobDialog({
 
     supabase
       .from('job_items')
-      .select('*')
+      .select('*, subcontractors(name)')
       .eq('job_id', job.id)
       .order('created_at')
       .then(({ data, error: itemsError }) => {
@@ -446,6 +477,16 @@ function JobDialog({
     return parsed === 'invalid' ? null : parsed
   }, [odometer])
 
+  // The job's own reading wins; the linked vehicle's standing reading is the
+  // fallback. Uses the pending vehicle so a swap in the same edit is reflected.
+  const odometerReference: OdometerReference = useMemo(() => {
+    if (jobOdometer !== null) return { value: jobOdometer, source: 'job' }
+    const vehicle = linkable.find((row) => row.id === vehicleId)
+    return vehicle?.current_odometer == null
+      ? null
+      : { value: vehicle.current_odometer, source: 'vehicle' }
+  }, [jobOdometer, linkable, vehicleId])
+
   function updateDraft(key: string, patch: Partial<ItemDraft>) {
     setDrafts((current) =>
       current.map((draft) => (draft.key === key ? { ...draft, ...patch } : draft)),
@@ -464,9 +505,14 @@ function JobDialog({
         key: `new-${nextKey}`,
         id: null,
         serviceId: '',
+        partPrice: '',
         laborPrice: '',
+        subPrice: '',
         nextDueKm: '',
         nextDueDate: '',
+        fluid: emptyFluidDraft(),
+        details: {},
+        subcontractor: null,
       },
     ])
     setNextKey((current) => current + 1)
@@ -478,6 +524,10 @@ function JobDialog({
       serviceId,
       laborPrice:
         service?.default_labor_price == null ? '' : String(service.default_labor_price),
+      partPrice: '',
+      subPrice: '',
+      // A different service means a different fluid, so start clean.
+      fluid: emptyFluidDraft(),
       // Based on the job's own date, not today — this line belongs to that visit.
       ...dueDefaults(service, jobOdometer, job.start_date),
     })
@@ -578,16 +628,19 @@ function JobDialog({
       const before = snapshot.get(draft.key)
       if (before && sameDraft(before, draft)) continue
 
-      const price = parseOptionalNumber(draft.laborPrice)
       const dueKm = parseOptionalInteger(draft.nextDueKm)
 
       // trg_sync_reminder updates the pending reminder from these fields.
       const { error: updateError } = await supabase
         .from('job_items')
         .update({
-          labor_price: price === 'invalid' || price === null ? 0 : price,
+          part_price: priceValue(draft.partPrice),
+          labor_price: priceValue(draft.laborPrice),
+          sub_price: priceValue(draft.subPrice),
           next_due_odometer: dueKm === 'invalid' ? null : dueKm,
           next_due_date: draft.nextDueDate || null,
+          // Merged, so keys this screen does not edit survive the save.
+          details: mergeFluidDetails(draft.details, draft.fluid),
         })
         .eq('id', draft.id)
 
@@ -601,12 +654,15 @@ function JobDialog({
     if (added.length > 0) {
       const { error: insertError } = await supabase.from('job_items').insert(
         added.map((draft) => {
-          const price = parseOptionalNumber(draft.laborPrice)
           const dueKm = parseOptionalInteger(draft.nextDueKm)
+          const details = fluidDetails(draft.fluid)
           return {
             job_id: job.id,
             service_id: draft.serviceId,
-            labor_price: price === 'invalid' || price === null ? 0 : price,
+            ...(hasFluidValues(details) ? { details } : {}),
+            part_price: priceValue(draft.partPrice),
+            labor_price: priceValue(draft.laborPrice),
+            sub_price: priceValue(draft.subPrice),
             next_due_odometer: dueKm === 'invalid' ? null : dueKm,
             next_due_date: draft.nextDueDate || null,
             status: 'done' as const,
@@ -762,19 +818,6 @@ function JobDialog({
                   </label>
                 )}
 
-                <label className="field field--narrow">
-                  <span>Labour</span>
-                  <input
-                    className="num"
-                    inputMode="decimal"
-                    value={draft.laborPrice}
-                    onChange={(event) =>
-                      updateDraft(draft.key, { laborPrice: event.target.value })
-                    }
-                    disabled={saving}
-                  />
-                </label>
-
                 <button
                   type="button"
                   className="btn btn--quiet btn--small"
@@ -784,6 +827,29 @@ function JobDialog({
                   Remove
                 </button>
               </div>
+
+              <PriceFields
+                partPrice={draft.partPrice}
+                laborPrice={draft.laborPrice}
+                subPrice={draft.subPrice}
+                disabled={saving}
+                onChange={(field, next) => updateDraft(draft.key, { [field]: next })}
+              />
+
+              {service && usesFluid(service) && (
+                <FluidFields
+                  service={service}
+                  draft={draft.fluid}
+                  onChange={(next) => updateDraft(draft.key, { fluid: next })}
+                  disabled={saving}
+                />
+              )}
+
+              {draft.subcontractor && (
+                <p className="line-sub">
+                  Subcontracted to <strong>{draft.subcontractor}</strong>
+                </p>
+              )}
 
               {!draft.id && !draft.serviceId && (
                 <p className="line-note muted">
@@ -806,6 +872,10 @@ function JobDialog({
                           updateDraft(draft.key, { nextDueKm: event.target.value })
                         }
                         disabled={saving}
+                      />
+                      <OdometerHint
+                        reference={odometerReference}
+                        entered={draft.nextDueKm}
                       />
                     </label>
                     <label className="field">
