@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Database } from './types/database'
 import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
@@ -135,6 +135,37 @@ export default function Customers({
       cancelled = true
     }
   }, [reloadToken])
+
+  /**
+   * v_customer_contact_health derives no_phone and no_opt_in from the customer
+   * row, so editing either leaves the amber flag contradicting the pill beside
+   * it until a reload. The pill reads the column, the flag reads the view —
+   * two sources for one fact, and only one of them was being refreshed.
+   *
+   * One row rather than the whole view: the edit touched one customer.
+   */
+  const refreshHealth = useCallback(async (customerId: string) => {
+    const { data, error } = await supabase
+      .from('v_customer_contact_health')
+      .select('*')
+      .eq('customer_id', customerId)
+      .maybeSingle()
+
+    if (error) {
+      // The flag stays as it was rather than disappearing on a failed read.
+      console.error('Could not refresh contact health', error)
+      return
+    }
+
+    setHealth((current) => {
+      const next = new Map(current)
+      // No row is an answer, not a miss — drop the stale one rather than
+      // leaving a flag the view no longer reports.
+      if (data) next.set(customerId, data)
+      else next.delete(customerId)
+      return next
+    })
+  }, [])
 
   const visible = useMemo(
     () =>
@@ -289,6 +320,7 @@ export default function Customers({
                 ? { ...current, ...updated }
                 : current,
             )
+            refreshHealth(updated.id)
           }}
           health={health.get(openCustomer.id)}
           onVehicleAdded={() => {
@@ -311,6 +343,9 @@ export default function Customers({
               { ...customer, vehicleCount: vehicles.length, jobCount: 0 },
               ...current,
             ])
+            // Nothing in the map for a customer that did not exist when the
+            // page loaded, so a new one with no phone showed no flag at all.
+            refreshHealth(customer.id)
             setAdding(false)
           }}
         />
