@@ -421,8 +421,8 @@ export const en = {
   'jobs.loading': 'Loading jobs…',
   'jobs.noMatch': 'No jobs match these filters.',
   'jobs.unknownCustomer': 'Unknown customer',
-  'jobs.lines.one': 'line',
-  'jobs.lines.other': 'lines',
+  'jobs.lines.one': '{count} line',
+  'jobs.lines.other': '{count} lines',
   'jobs.editedOn': 'edited {date}',
   'jobs.listCapped':
     'Showing the {limit} most recent jobs. Narrow the filters to see older ones.',

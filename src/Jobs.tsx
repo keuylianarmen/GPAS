@@ -299,10 +299,9 @@ export default function Jobs({ staff }: { staff: Staff }) {
                       {jobVehicleLabel(job.vehicle_id, job.vehicles)}
                     </span>{' '}
                     ·{' '}
-                    <span className="num">{job.job_items[0]?.count ?? 0}</span>{' '}
-                    {(job.job_items[0]?.count ?? 0) === 1
-                      ? t('jobs.lines.one')
-                      : t('jobs.lines.other')}
+                    <span className="figures" dir="auto">
+                      {tn(job.job_items[0]?.count ?? 0, 'jobs.lines')}
+                    </span>
                     {job.payment_method
                       ? ` · ${paymentLabels.get(job.payment_method) ?? job.payment_method}`
                       : ''}
