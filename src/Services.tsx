@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Database } from './types/database'
 import { supabase } from './lib/supabase'
 import { money, reminderRule } from './lib/format'
-import AddServiceDialog from './components/AddServiceDialog'
+import ServiceDialog from './components/ServiceDialog'
 import { localised, t, tn } from './lib/i18n'
 
 type Category = Database['public']['Tables']['service_categories']['Row']
@@ -17,6 +17,9 @@ export default function Services() {
 
   const [openCategoryId, setOpenCategoryId] = useState<number | null>(null)
   const [addingTo, setAddingTo] = useState<Category | null>(null)
+  const [editingService, setEditingService] = useState<Service | null>(null)
+  // Quiet filter for services that Arabic users cannot see.
+  const [onlyMissingArabic, setOnlyMissingArabic] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -57,9 +60,12 @@ export default function Services() {
 
   // Grouped and sorted here rather than by the query, so a newly inserted
   // service lands in its proper place without refetching.
+  const missingArabic = services.filter((service) => !service.name_ar).length
+
   const byCategory = useMemo(() => {
     const groups = new Map<number, Service[]>()
     for (const service of services) {
+      if (onlyMissingArabic && service.name_ar) continue
       const group = groups.get(service.category_id)
       if (group) group.push(service)
       else groups.set(service.category_id, [service])
@@ -72,7 +78,7 @@ export default function Services() {
       )
     }
     return groups
-  }, [services])
+  }, [services, onlyMissingArabic])
 
   function retry() {
     setError(null)
@@ -100,10 +106,29 @@ export default function Services() {
     <>
       <div className="section-label">
         <span>{t('services.catalogue')}</span>
-        <span className="muted">
+        <span className="muted section-label-right">
           {tn(services.length, 'services.count')}
+          {missingArabic > 0 && (
+            <>
+              {' · '}
+              <button
+                type="button"
+                className="quiet-link"
+                aria-pressed={onlyMissingArabic}
+                onClick={() => setOnlyMissingArabic((only) => !only)}
+              >
+                {onlyMissingArabic
+                  ? t('services.showAll')
+                  : tn(missingArabic, 'services.missingArabic')}
+              </button>
+            </>
+          )}
         </span>
       </div>
+
+      {onlyMissingArabic && (
+        <p className="field-note">{t('services.onlyMissingArabic')}</p>
+      )}
 
       {categories.length === 0 && (
         <p className="empty">{t('services.noCategories')}</p>
@@ -154,9 +179,18 @@ export default function Services() {
                             </div>
                           )}
                         </div>
-                        <span className="num service-price">
-                          {money(service.default_labor_price)}
-                        </span>
+                        <div className="service-side">
+                          <span className="num service-price">
+                            {money(service.default_labor_price)}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn--quiet btn--small"
+                            onClick={() => setEditingService(service)}
+                          >
+                            {t('action.edit')}
+                          </button>
+                        </div>
                       </div>
                     )
                   })
@@ -179,8 +213,29 @@ export default function Services() {
         )
       })}
 
+      {editingService && (
+        <ServiceDialog
+          categories={categories}
+          service={editingService}
+          onClose={() => setEditingService(null)}
+          onSaved={(updated) => {
+            setServices((current) =>
+              current.map((row) => (row.id === updated.id ? updated : row)),
+            )
+            setEditingService(null)
+          }}
+          onRemoved={() => {
+            // Deactivated or deleted; either way it leaves the active catalogue.
+            setServices((current) =>
+              current.filter((row) => row.id !== editingService.id),
+            )
+            setEditingService(null)
+          }}
+        />
+      )}
+
       {addingTo && (
-        <AddServiceDialog
+        <ServiceDialog
           categories={categories}
           fixedCategory={addingTo}
           onClose={() => setAddingTo(null)}

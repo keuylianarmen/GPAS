@@ -1725,3 +1725,50 @@
 [dir='rtl'] .chart-card .recharts-text {
   direction: rtl;
 }
+
+/* Service edit ---------------------------------------------------------- */
+
+.service-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The other language's name: present and editable, but not the headline. */
+.field--secondary > span {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.field--secondary input {
+  padding: 8px 10px;
+  font-size: 13px;
+  background: var(--surface);
+}
+
+.service-danger {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+}
+
+/* A count that is also a filter, without looking like a button. */
+.quiet-link {
+  padding: 0;
+  font: inherit;
+  color: var(--amber);
+  background: none;
+  border: none;
+  border-bottom: 1px solid currentColor;
+  cursor: pointer;
+}
+
+.quiet-link[aria-pressed='true'] {
+  color: var(--ink);
+}
+
+.section-label-right {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+}

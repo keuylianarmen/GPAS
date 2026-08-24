@@ -24,7 +24,7 @@ import TireFields from './components/TireFields'
 import OdometerHint from './components/OdometerHint'
 import type { OdometerReference } from './components/OdometerHint'
 import AddCustomerDialog from './components/AddCustomerDialog'
-import AddServiceDialog from './components/AddServiceDialog'
+import ServiceDialog from './components/ServiceDialog'
 import VehicleFields from './components/VehicleFields'
 import {
   emptyVehicleDraft,
@@ -952,7 +952,7 @@ export default function NewJob() {
       )}
 
       {addingService && (
-        <AddServiceDialog
+        <ServiceDialog
           categories={categories}
           onClose={() => setAddingService(false)}
           onSaved={(service) => {
