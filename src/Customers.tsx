@@ -242,7 +242,11 @@ export default function Customers({
             ))}
           </select>
         </label>
-        <button type="button" className="btn btn--dark" onClick={() => setAdding(true)}>
+        <button
+          type="button"
+          className="btn btn--dark toolbar-action"
+          onClick={() => setAdding(true)}
+        >
           {t('customers.add')}
         </button>
       </div>

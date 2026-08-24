@@ -57,7 +57,14 @@ function editedOn(job: Job): string | null {
   return job.updated_at.slice(0, 10)
 }
 
-export default function Jobs({ staff }: { staff: Staff }) {
+export default function Jobs({
+  staff,
+  onNewJob,
+}: {
+  staff: Staff
+  /** The same state switch the tabs make — New job is a section, not a modal. */
+  onNewJob: () => void
+}) {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -261,6 +268,17 @@ export default function Jobs({ staff }: { staff: Staff }) {
             {t('jobs.clearFilters')}
           </button>
         )}
+
+        {/* Trailing end of the filter row, where Customers puts Add customer.
+            Pushed there by margin rather than by a flexing sibling, since this
+            toolbar has no search field to grow into the gap. */}
+        <button
+          type="button"
+          className="btn btn--dark toolbar-action"
+          onClick={onNewJob}
+        >
+          {t('jobs.add')}
+        </button>
       </div>
 
       {error && (

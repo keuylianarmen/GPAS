@@ -421,6 +421,7 @@ export const en = {
   'jobs.allCustomers': 'All customers',
   'jobs.from': 'From',
   'jobs.to': 'To',
+  'jobs.add': 'New job',
   'jobs.clearFilters': 'Clear filters',
   'jobs.loading': 'Loading jobs…',
   'jobs.noMatch': 'No jobs match these filters.',

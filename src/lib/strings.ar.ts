@@ -430,6 +430,7 @@ export const ar: Catalogue = {
   'jobs.allCustomers': 'كل الزبائن',
   'jobs.from': 'من',
   'jobs.to': 'إلى',
+  'jobs.add': '+ أمر جديد',
   'jobs.clearFilters': 'مسح التصفية',
   'jobs.loading': 'جاري تحميل الأوامر…',
   'jobs.noMatch': 'لا أوامر مطابقة.',

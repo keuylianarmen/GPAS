@@ -250,7 +250,7 @@ function Shell({ staff }: { staff: Staff }) {
             onFocusHandled={() => setFocusCustomerId(null)}
           />
         ) : tab === 'jobs' ? (
-          <Jobs staff={staff} />
+          <Jobs staff={staff} onNewJob={() => setTab('new-job')} />
         ) : tab === 'reminders' ? (
           <Reminders />
         ) : tab === 'stats' ? (

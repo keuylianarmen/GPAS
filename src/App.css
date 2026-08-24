@@ -609,9 +609,17 @@
   margin-bottom: 18px;
 }
 
+/*
+ * The search box has no label above it while the filters beside it do, so
+ * left alone it floats a label's height clear of them. Same treatment as
+ * .toolbar-action: stop the stretch, then match .field's 14px bottom margin
+ * so the input's lower edge lands on the same line as the selects'.
+ */
 .toolbar-search {
   flex: 1;
   min-width: 220px;
+  align-self: end;
+  margin-block-end: 14px;
 }
 
 .input,
@@ -1136,6 +1144,24 @@
 .toolbar-field {
   margin-bottom: 0;
   min-width: 150px;
+}
+
+/*
+ * The screen's primary action, at the trailing end of the filter row.
+ *
+ * .toolbar is a flex row with no align-items, so children stretch. A labelled
+ * field is 26px of label + 42px of control + its own 14px bottom margin, and a
+ * button with none of that stretched from 42px to 82px — twice the height of
+ * the inputs beside it.
+ *
+ * align-self stops the stretch; the 14px matches .field's bottom margin, which
+ * is what puts this button's lower edge on the same line as the controls
+ * rather than 14px below them.
+ */
+.toolbar-action {
+  align-self: end;
+  margin-block-end: 14px;
+  margin-inline-start: auto;
 }
 
 .toolbar-clear {
