@@ -1,5 +1,5 @@
 import type { LookupValue } from '../lib/useLookup'
-import { t } from '../lib/i18n'
+import { localised, t } from '../lib/i18n'
 
 /**
  * Optional lookup-backed select. Shows `label_en` and clears back to null via
@@ -26,6 +26,10 @@ export default function LookupSelect({
 }) {
   const stored = (option: LookupValue) =>
     store === 'label_en' ? option.label_en : option.value
+
+  // The stored value stays language-independent; only the label switches.
+  const shown = (option: LookupValue) =>
+    localised(option.label_en, option.label_ar) ?? option.label_en
   const known = options.some((option) => stored(option) === value)
 
   return (
@@ -38,7 +42,7 @@ export default function LookupSelect({
       {value !== '' && !known && <option value={value}>{value}</option>}
       {options.map((option) => (
         <option key={option.id} value={stored(option)}>
-          {option.label_en}
+          {shown(option)}
         </option>
       ))}
     </select>

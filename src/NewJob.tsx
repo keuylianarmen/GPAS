@@ -15,7 +15,7 @@ import { parseOptionalInteger, priceValue, sumPrices } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import Collapsible from './components/Collapsible'
 import ServicePicker from './components/ServicePicker'
-import { t } from './lib/i18n'
+import { localised, t } from './lib/i18n'
 import type { StringKey } from './lib/i18n'
 import Dialog from './components/Dialog'
 import PriceFields from './components/PriceFields'
@@ -682,7 +682,9 @@ export default function NewJob() {
                       className="picker-trigger"
                       onClick={() => setPickingService(line.key)}
                     >
-                      {service ? service.name_en : t('newJob.chooseService')}
+                      {service
+                        ? localised(service.name_en, service.name_ar)
+                        : t('newJob.chooseService')}
                     </button>
                   </div>
 
@@ -799,9 +801,7 @@ export default function NewJob() {
               <option value="">{t('common.notRecorded')}</option>
               {paymentMethods.map((method) => (
                 <option key={method.id} value={method.value} dir="auto">
-                  {method.label_ar
-                    ? `${method.label_en} · ${method.label_ar}`
-                    : method.label_en}
+                  {localised(method.label_en, method.label_ar)}
                 </option>
               ))}
             </select>
@@ -842,8 +842,14 @@ export default function NewJob() {
               filledLines.map((line) => (
                 <div className="summary-row" key={line.key}>
                   <span>
-                    {serviceById.get(line.serviceId)?.name_en ??
-                      t('newJob.serviceFallback')}
+                    {(() => {
+                      const line_service = serviceById.get(line.serviceId)
+                      return (
+                        (line_service &&
+                          localised(line_service.name_en, line_service.name_ar)) ??
+                        t('newJob.serviceFallback')
+                      )
+                    })()}
                   </span>
                   <span className="num">
                     {money(sumPrices(line.partPrice, line.laborPrice, line.subPrice))}

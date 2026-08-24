@@ -3,7 +3,7 @@ import type { Database } from './types/database'
 import { supabase } from './lib/supabase'
 import { money, reminderRule } from './lib/format'
 import AddServiceDialog from './components/AddServiceDialog'
-import { t, tn } from './lib/i18n'
+import { localised, t, tn } from './lib/i18n'
 
 type Category = Database['public']['Tables']['service_categories']['Row']
 type Service = Database['public']['Tables']['services']['Row']
@@ -65,7 +65,11 @@ export default function Services() {
       else groups.set(service.category_id, [service])
     }
     for (const group of groups.values()) {
-      group.sort((a, b) => a.name_en.localeCompare(b.name_en))
+      group.sort((a, b) =>
+        (localised(a.name_en, a.name_ar) ?? '').localeCompare(
+          localised(b.name_en, b.name_ar) ?? '',
+        ),
+      )
     }
     return groups
   }, [services])
@@ -97,7 +101,7 @@ export default function Services() {
       <div className="section-label">
         <span>{t('services.catalogue')}</span>
         <span className="muted">
-          {tn(services.length, 'services.countOne', 'services.countOther')}
+          {tn(services.length, 'services.count')}
         </span>
       </div>
 
@@ -117,7 +121,9 @@ export default function Services() {
               aria-expanded={open}
               onClick={() => setOpenCategoryId(open ? null : category.id)}
             >
-              <span className="cat-name">{category.name_en}</span>
+              <span className="cat-name">
+                {localised(category.name_en, category.name_ar)}
+              </span>
               <span className="muted">
                 <span className="num">{rows.length}</span>
                 <span className="cat-chevron">{open ? '−' : '+'}</span>
@@ -137,7 +143,9 @@ export default function Services() {
                     return (
                       <div className="cat-row service" key={service.id}>
                         <div>
-                          <div className="service-name">{service.name_en}</div>
+                          <div className="service-name">
+                            {localised(service.name_en, service.name_ar)}
+                          </div>
                           {service.triggers_reminder && (
                             <div className="service-meta muted">
                               {rule
@@ -160,7 +168,9 @@ export default function Services() {
                     className="btn btn--ghost btn--small"
                     onClick={() => setAddingTo(category)}
                   >
-                    {t('services.addTo', { category: category.name_en })}
+                    {t('services.addTo', {
+                      category: localised(category.name_en, category.name_ar) ?? '',
+                    })}
                   </button>
                 </div>
               </div>

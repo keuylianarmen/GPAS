@@ -4,7 +4,7 @@ import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import { customerLabel } from '../lib/customer'
 import Dialog from './Dialog'
-import { t } from '../lib/i18n'
+import { t, tn } from '../lib/i18n'
 import VehicleFields from './VehicleFields'
 import {
   describeVehicle,
@@ -122,10 +122,7 @@ export default function AddCustomerDialog({
       setError(
         t('customerForm.partialSave', {
           customer: customerLabel(customer),
-          failed:
-            failures.length === 1
-              ? t('customerForm.vehiclesFailedOne')
-              : t('customerForm.vehiclesFailedMany', { count: failures.length }),
+          failed: tn(failures.length, 'customerForm.vehiclesFailed'),
           reasons: failures.join('; '),
         }),
       )

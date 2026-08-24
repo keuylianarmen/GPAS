@@ -18,7 +18,7 @@ import { todayIso } from './lib/date'
 import { customerLabel } from './lib/customer'
 import { PERIODS, monthLabel, periodStart, withinPeriod } from './lib/period'
 import type { Period } from './lib/period'
-import { t, tn } from './lib/i18n'
+import { localised, t, tn } from './lib/i18n'
 import {
   AXIS_TICK,
   CHART_INK,
@@ -157,8 +157,10 @@ export default function Stats({
   const categoryBars = useMemo(() => {
     const byName = new Map<string, number>()
     for (const row of byCategory) {
-      if (!withinPeriod(row.month, start) || !row.category) continue
-      byName.set(row.category, (byName.get(row.category) ?? 0) + (row.revenue ?? 0))
+      if (!withinPeriod(row.month, start)) continue
+      const label = localised(row.category, row.category_ar)
+      if (!label) continue
+      byName.set(label, (byName.get(label) ?? 0) + (row.revenue ?? 0))
     }
     return [...byName.entries()]
       .map(([category, revenue]) => ({ category, revenue }))
@@ -172,16 +174,18 @@ export default function Stats({
       { service: string; category: string; revenue: number; times: number }
     >()
     for (const row of byService) {
-      if (!withinPeriod(row.month, start) || !row.service) continue
-      const existing = merged.get(row.service) ?? {
-        service: row.service,
+      if (!withinPeriod(row.month, start)) continue
+      const name = localised(row.service, row.service_ar)
+      if (!name) continue
+      const existing = merged.get(name) ?? {
+        service: name,
         category: row.category ?? '',
         revenue: 0,
         times: 0,
       }
       existing.revenue += row.revenue ?? 0
       existing.times += row.times_done ?? 0
-      merged.set(row.service, existing)
+      merged.set(name, existing)
     }
     const all = [...merged.values()]
     return {
@@ -223,11 +227,7 @@ export default function Stats({
     )
   }
 
-  const monthNote = tn(
-    months.length,
-    'stats.monthsWithJobsOne',
-    'stats.monthsWithJobsOther',
-  )
+  const monthNote = tn(months.length, 'stats.monthsWithJobs')
 
   return (
     <>
@@ -411,7 +411,7 @@ export default function Stats({
           rows={services.byFrequency}
           dataKey="times"
           color={SERIES.count}
-          format={(value) => tn(value, 'stats.timesOne', 'stats.timesOther')}
+          format={(value) => tn(value, 'stats.times')}
           label={t('stats.timesDone')}
         />
       </div>

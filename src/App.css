@@ -1675,3 +1675,53 @@
   margin-inline-start: 2px;
   opacity: 0.65;
 }
+
+/* Language toggle ------------------------------------------------------- */
+
+.lang-toggle {
+  margin-bottom: 0;
+  gap: 4px;
+}
+
+.chip--onDark {
+  padding: 4px 9px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.chip--onDark:hover:not([aria-pressed='true']) {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.chip--onDark[aria-pressed='true'] {
+  color: var(--ink);
+  background: #fff;
+  border-color: #fff;
+}
+
+/* RTL ------------------------------------------------------------------- */
+
+/*
+ * Dates are ISO and stay LTR, like every other figure. The date input's own
+ * internal layout is the browser's business, but its value must not reorder.
+ */
+[dir='rtl'] input[type='date'] {
+  direction: ltr;
+  text-align: start;
+}
+
+/*
+ * The chart library positions its SVG marks with computed x/y, which does not
+ * mirror. Keeping the plot LTR keeps axes and bars consistent with the
+ * left-to-right value scale; the surrounding labels still mirror.
+ */
+[dir='rtl'] .chart-card {
+  direction: ltr;
+}
+
+[dir='rtl'] .chart-card .recharts-text {
+  direction: rtl;
+}

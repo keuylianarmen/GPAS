@@ -11,7 +11,7 @@ import type { MutableService } from './components/MuteDialog'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
 import { vehicleLabel } from './lib/vehicle'
 import { CONTACT_PROBLEM_LABELS, contactProblem } from './lib/contactHealth'
-import { t, tn } from './lib/i18n'
+import { localised, t, tn } from './lib/i18n'
 import type { ContactHealth } from './lib/contactHealth'
 
 type Customer = Database['public']['Tables']['customers']['Row']
@@ -246,12 +246,8 @@ export default function Customers({
               })()}
 
               <div className="customer-counts">
-                {tn(
-                  customer.vehicleCount,
-                  'customers.vehiclesOne',
-                  'customers.vehiclesOther',
-                )}{' '}
-                · {tn(customer.jobCount, 'customers.jobsOne', 'customers.jobsOther')}
+                {tn(customer.vehicleCount, 'customers.vehicles')}{' '}
+                · {tn(customer.jobCount, 'customers.jobs')}
               </div>
             </button>
           ))}
@@ -464,7 +460,9 @@ function CustomerDetail({
       if (distinct.has(reminder.service_id)) continue
       distinct.set(reminder.service_id, {
         id: reminder.service_id,
-        name: reminder.services?.name_en ?? t('detail.unknownService'),
+        name:
+          localised(reminder.services?.name_en, reminder.services?.name_ar) ??
+          t('detail.unknownService'),
       })
     }
 
@@ -511,11 +509,7 @@ function CustomerDetail({
               <div className="flag-detail">
                 {health?.failed_sends ? (
                   <>
-                    {tn(
-                      health.failed_sends,
-                      'detail.failedAttemptsOne',
-                      'detail.failedAttemptsOther',
-                    )}
+                    {tn(health.failed_sends, 'detail.failedAttempts')}
                     {health.last_failure
                       ? t('detail.lastOn')
                       : t('detail.noFailureYet')}
@@ -632,7 +626,10 @@ function CustomerDetail({
                 <div className="list-row" key={reminder.id}>
                   <div>
                     <div>
-                      {reminder.services?.name_en ?? t('detail.unknownService')}
+                      {localised(
+                        reminder.services?.name_en,
+                        reminder.services?.name_ar,
+                      ) ?? t('detail.unknownService')}
                     </div>
                     <div className="list-row-meta num">
                       {vehicleLabel(vehicle)}
@@ -680,7 +677,8 @@ function CustomerDetail({
                       {mute.service_id === null ? (
                         <span className="pill pill--amber">{t('detail.allReminders')}</span>
                       ) : (
-                        mute.service_en ?? t('detail.unknownService')
+                        localised(mute.service_en, mute.service_ar) ??
+                        t('detail.unknownService')
                       )}
                     </div>
                     <div className="list-row-meta">

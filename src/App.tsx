@@ -9,8 +9,16 @@ import Stats from './Stats'
 import Services from './Services'
 import { supabase } from './lib/supabase'
 import { useStaff } from './lib/useStaff'
-import { t } from './lib/i18n'
+import {
+  LOCALES,
+  applyLocaleToDocument,
+  getLocale,
+  setLocale,
+  t,
+  useLocale,
+} from './lib/i18n'
 import type { StringKey } from './lib/i18n'
+import { localised } from './lib/i18n'
 import type { Staff } from './lib/useStaff'
 import './App.css'
 
@@ -63,6 +71,33 @@ function clearStoredTab() {
   }
 }
 
+/**
+ * Written before React renders anything, so the first paint is already in the
+ * right direction rather than flipping after hydration.
+ */
+applyLocaleToDocument(getLocale())
+
+function LanguageToggle() {
+  const locale = useLocale()
+
+  return (
+    <div className="chips lang-toggle" role="group" aria-label={t('nav.language')}>
+      {LOCALES.map((entry) => (
+        <button
+          type="button"
+          key={entry.key}
+          className="chip chip--onDark"
+          lang={entry.key}
+          aria-pressed={locale === entry.key}
+          onClick={() => setLocale(entry.key)}
+        >
+          {entry.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function SignOutButton({ className }: { className: string }) {
   const [signingOut, setSigningOut] = useState(false)
 
@@ -91,6 +126,8 @@ function SignOutButton({ className }: { className: string }) {
 }
 
 function Shell({ staff }: { staff: Staff }) {
+  // Subscribes the whole tree to the language, so every t() below re-resolves.
+  useLocale()
   const [tab, setTab] = useState<Tab>(() => readStoredTab() ?? 'dashboard')
   // Set when a screen links straight to one customer; cleared once opened.
   const [focusCustomerId, setFocusCustomerId] = useState<string | null>(null)
@@ -131,8 +168,9 @@ function Shell({ staff }: { staff: Staff }) {
           </nav>
 
           <div className="topbar-identity">
+            <LanguageToggle />
             <span className="topbar-name" dir="auto">
-              {staff.name_en || staff.name_ar}
+              {localised(staff.name_en, staff.name_ar)}
             </span>
             <SignOutButton className="btn btn--onDark btn--small" />
           </div>
@@ -170,6 +208,7 @@ function Shell({ staff }: { staff: Staff }) {
 }
 
 export default function App() {
+  useLocale()
   const { session, staff, loading } = useStaff()
 
   if (loading) {

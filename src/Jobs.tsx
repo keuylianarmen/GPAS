@@ -25,7 +25,7 @@ import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import type { OdometerWarning } from './lib/odometer'
 import Dialog from './components/Dialog'
 import ServicePicker from './components/ServicePicker'
-import { t, tn } from './lib/i18n'
+import { localised, t, tn } from './lib/i18n'
 import PriceFields from './components/PriceFields'
 import FluidFields from './components/FluidFields'
 import TireFields from './components/TireFields'
@@ -190,7 +190,13 @@ export default function Jobs({ staff }: { staff: Staff }) {
   const loading = !referenceReady || !jobsReady
 
   const paymentLabels = useMemo(
-    () => new Map(paymentMethods.map((method) => [method.value, method.label_en])),
+    () =>
+      new Map(
+        paymentMethods.map((method) => [
+          method.value,
+          localised(method.label_en, method.label_ar) ?? method.label_en,
+        ]),
+      ),
     [paymentMethods],
   )
 
@@ -295,8 +301,8 @@ export default function Jobs({ staff }: { staff: Staff }) {
                     ·{' '}
                     <span className="num">{job.job_items[0]?.count ?? 0}</span>{' '}
                     {(job.job_items[0]?.count ?? 0) === 1
-                      ? t('jobs.linesOne')
-                      : t('jobs.linesOther')}
+                      ? t('jobs.lines.one')
+                      : t('jobs.lines.other')}
                     {job.payment_method
                       ? ` · ${paymentLabels.get(job.payment_method) ?? job.payment_method}`
                       : ''}
@@ -668,7 +674,10 @@ function JobDialog({
         .eq('id', draft.id)
 
       if (updateError) {
-        const name = serviceById.get(draft.serviceId)?.name_en ?? t('jobEdit.aLine')
+        const service = serviceById.get(draft.serviceId)
+        const name =
+          (service && localised(service.name_en, service.name_ar)) ??
+          t('jobEdit.aLine')
         failures.push(`${name}: ${updateError.message}`)
       }
     }
@@ -786,7 +795,7 @@ function JobDialog({
             <option value="">{t('common.notRecorded')}</option>
             {paymentMethods.map((method) => (
               <option key={method.id} value={method.value}>
-                {method.label_en}
+                {localised(method.label_en, method.label_ar)}
               </option>
             ))}
           </select>
@@ -823,7 +832,8 @@ function JobDialog({
                   <div className="field">
                     <span>{t('jobEdit.service')}</span>
                     <div className="static-value">
-                      {service?.name_en ?? t('jobEdit.unknownService')}
+                      {(service && localised(service.name_en, service.name_ar)) ??
+                        t('jobEdit.unknownService')}
                     </div>
                   </div>
                 ) : (
@@ -835,7 +845,9 @@ function JobDialog({
                       onClick={() => setPickingService(draft.key)}
                       disabled={saving}
                     >
-                      {service ? service.name_en : t('jobEdit.chooseService')}
+                      {service
+                        ? localised(service.name_en, service.name_ar)
+                        : t('jobEdit.chooseService')}
                     </button>
                   </div>
                 )}
@@ -1098,21 +1110,11 @@ function VehicleChangeConfirm({
         {change.moving === 0
           ? t('vehicleChange.noneRaised')
           : clearing
-            ? tn(
-                change.moving,
-                'vehicleChange.cancelledOne',
-                'vehicleChange.cancelledOther',
-              )
-            : t(
-                change.moving === 1
-                  ? 'vehicleChange.movingOne'
-                  : 'vehicleChange.movingOther',
-                {
-                  count: change.moving,
-                  from: oldLabel,
-                  to: vehicleLabel(newVehicle),
-                },
-              )}
+            ? tn(change.moving, 'vehicleChange.cancelled')
+            : tn(change.moving, 'vehicleChange.moving', {
+                from: oldLabel,
+                to: vehicleLabel(newVehicle),
+              })}
       </p>
 
       {!clearing && (
@@ -1121,11 +1123,13 @@ function VehicleChangeConfirm({
             <span className="muted">
               {t('vehicleChange.reads', { vehicle: vehicleLabel(newVehicle) })}
             </span>
-            <span className="num">{reading(newVehicle.current_odometer)}</span>
+            <span className="figures" dir="auto">
+              {reading(newVehicle.current_odometer)}
+            </span>
           </div>
           <div className="summary-row">
             <span className="muted">{t('vehicleChange.jobRecords')}</span>
-            <span className="num">
+            <span className="figures" dir="auto">
               {parsedReading === 'invalid' || parsedReading === null
                 ? t('vehicleChange.notRecorded')
                 : `${km(parsedReading)} ${t('common.km')}`}
@@ -1145,11 +1149,15 @@ function VehicleChangeConfirm({
               <span className="muted">
                 {t('vehicleChange.reads', { vehicle: oldLabel })}
               </span>
-              <span className="num">{reading(oldVehicle.current_odometer)}</span>
+              <span className="figures" dir="auto">
+                {reading(oldVehicle.current_odometer)}
+              </span>
             </div>
             <div className="summary-row">
               <span className="muted">{t('vehicleChange.withoutJob')}</span>
-              <span className="num">{reading(change.withoutJob)}</span>
+              <span className="figures" dir="auto">
+                {reading(change.withoutJob)}
+              </span>
             </div>
           </div>
           <p className="field-note">

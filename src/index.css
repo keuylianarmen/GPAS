@@ -66,10 +66,32 @@ textarea {
   outline-offset: 2px;
 }
 
-/* Figures, money, counts, plate numbers. */
-.num {
+/*
+ * Figures, money, counts, plate numbers.
+ *
+ * Latin digits in both languages: an Arabic-Indic invoice is not what a
+ * Jordanian shop issues, and proportional Arabic digits would break the
+ * tabular alignment these columns rely on.
+ *
+ * The isolation matters in RTL. A run like "079 812 4430" is European numbers
+ * separated by neutral whitespace; under the bidi algorithm those neutrals take
+ * the surrounding paragraph direction, so in an RTL paragraph the three groups
+ * are laid out right-to-left and the phone reads "4430 812 079". Forcing the
+ * run to LTR and isolating it from its surroundings keeps every figure intact
+ * next to Arabic text.
+ */
+.num,
+.figures {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* .num is for a run of figures on its own. A sentence that merely contains a
+   number uses .figures with dir="auto", because forcing LTR on Arabic prose
+   detaches a trailing unit from its number. */
+.num {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .muted {

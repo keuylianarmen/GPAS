@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { parseOptionalNumber, parseOptionalPositiveInteger } from '../lib/parse'
 import { useLookupListKeys } from '../lib/useLookupListKeys'
 import Dialog from './Dialog'
-import { t } from '../lib/i18n'
+import { localised, t } from '../lib/i18n'
 
 type Category = Database['public']['Tables']['service_categories']['Row']
 type Service = Database['public']['Tables']['services']['Row']
@@ -118,7 +118,9 @@ export default function AddServiceDialog({
     <Dialog
       title={
         fixedCategory
-          ? t('serviceForm.titleInCategory', { category: fixedCategory.name_en })
+          ? t('serviceForm.titleInCategory', {
+              category: localised(fixedCategory.name_en, fixedCategory.name_ar) ?? '',
+            })
           : t('serviceForm.title')
       }
       onClose={onClose}
@@ -136,7 +138,7 @@ export default function AddServiceDialog({
               <option value="">{t('serviceForm.chooseCategory')}</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.name_en}
+                  {localised(category.name_en, category.name_ar)}
                 </option>
               ))}
             </select>

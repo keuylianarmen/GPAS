@@ -8,7 +8,7 @@ import { vehicleLabel } from './lib/vehicle'
 import { parseOptionalPositiveInteger } from './lib/parse'
 import { logReminderSend, setReminderDue } from './lib/reminders'
 import Collapsible from './components/Collapsible'
-import { t, tn } from './lib/i18n'
+import { localised, t, tn } from './lib/i18n'
 import type { StringKey } from './lib/i18n'
 
 type LiveReminder = Database['public']['Views']['v_reminders_live']['Row']
@@ -373,7 +373,7 @@ export default function Reminders() {
         <div className="section-label">
           <span>{t('reminders.dueNow')}</span>
           <span className="muted">
-            {tn(visibleDueCount, 'reminders.dueCountOne', 'reminders.dueCountOther')}
+            {tn(visibleDueCount, 'reminders.dueCount')}
           </span>
         </div>
       )}
@@ -482,7 +482,8 @@ export default function Reminders() {
             <div className="card reminder reminder--later" key={row.id}>
               <div className="reminder-main">
                 <div className="reminder-service">
-                  {row.service_en ?? t('reminders.unknownService')}
+                  {localised(row.service_en, row.service_ar) ??
+                    t('reminders.unknownService')}
                 </div>
                 <div className="reminder-who">
                   <span dir="auto">{customerLabel(row)}</span>
@@ -495,7 +496,9 @@ export default function Reminders() {
                     </>
                   ) : null}
                 </div>
-                <div className="reminder-due num">{dueText(row)}</div>
+                <div className="reminder-due figures" dir="auto">
+          {dueText(row)}
+        </div>
               </div>
 
               <div className="reminder-actions">
@@ -565,7 +568,8 @@ function ReminderCard({
   return (
     <div className={className.join(' ')}>
       <div className="reminder-main">
-        <div className="reminder-service">{row.service_en ?? t('reminders.unknownService')}</div>
+        <div className="reminder-service">{localised(row.service_en, row.service_ar) ??
+                    t('reminders.unknownService')}</div>
         <div className="reminder-who">
           <span dir="auto">{customerLabel(row)}</span>
           {' · '}
@@ -628,7 +632,9 @@ function ReminderCard({
             </div>
           </div>
         ) : (
-          <div className="reminder-due num">{dueText(row)}</div>
+          <div className="reminder-due figures" dir="auto">
+          {dueText(row)}
+        </div>
         )}
 
         {failing && onFailed && (

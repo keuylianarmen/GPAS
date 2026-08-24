@@ -5,7 +5,7 @@ import { money } from './lib/format'
 import { todayIso } from './lib/date'
 import { customerLabel } from './lib/customer'
 import { jobVehicleLabel } from './lib/vehicle'
-import { t } from './lib/i18n'
+import { localised, t } from './lib/i18n'
 import { CONTACT_PROBLEM_LABELS } from './lib/contactHealth'
 
 type LiveReminder = Database['public']['Views']['v_reminders_live']['Row']
@@ -18,7 +18,7 @@ type RecentJob = {
   vehicle_id: string | null
   customers: { name_en: string | null; name_ar: string | null } | null
   vehicles: { plate: string | null; make: string | null; model: string | null } | null
-  job_items: { services: { name_en: string } | null }[]
+  job_items: { services: { name_en: string; name_ar: string | null } | null }[]
 }
 
 type Counts = {
@@ -90,7 +90,7 @@ export default function Dashboard({
         supabase
           .from('jobs')
           .select(
-            'id, job_no, start_date, payment_method, vehicle_id, customers(name_en, name_ar), vehicles(plate, make, model), job_items(services(name_en))',
+            'id, job_no, start_date, payment_method, vehicle_id, customers(name_en, name_ar), vehicles(plate, make, model), job_items(services(name_en, name_ar))',
           )
           .order('start_date', { ascending: false })
           .order('job_no', { ascending: false })
@@ -254,7 +254,16 @@ export default function Dashboard({
                   </div>
                   <div className="list-row-meta">
                     {job.job_items
-                      .flatMap((item) => (item.services ? [item.services.name_en] : []))
+                      .flatMap((item) =>
+                        item.services
+                          ? [
+                              localised(
+                                item.services.name_en,
+                                item.services.name_ar,
+                              ) ?? '',
+                            ]
+                          : [],
+                      )
                       .join(' · ') || t('dash.noLines')}
                   </div>
                 </div>
@@ -290,7 +299,8 @@ export default function Dashboard({
               <div className="card dash-row" key={row.id}>
                 <div className="dash-row-main">
                   <div className="dash-row-title">
-                    {row.service_en ?? t('dash.unknownService')}
+                    {localised(row.service_en, row.service_ar) ??
+                      t('dash.unknownService')}
                   </div>
                   <div className="list-row-meta">
                     <span dir="auto">{customerLabel(row)}</span>

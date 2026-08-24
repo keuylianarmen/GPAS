@@ -3,7 +3,7 @@ import type { Database } from '../types/database'
 import { money } from '../lib/format'
 import { useServiceUsage } from '../lib/useServiceUsage'
 import Dialog from './Dialog'
-import { t } from '../lib/i18n'
+import { localised, t } from '../lib/i18n'
 
 type Category = Database['public']['Tables']['service_categories']['Row']
 type Service = Database['public']['Tables']['services']['Row']
@@ -11,6 +11,11 @@ type Service = Database['public']['Tables']['services']['Row']
 /** Enough to be a shortcut, not enough to become a second list. */
 const COMMON_LIMIT = 8
 
+function serviceName(service: Service): string {
+  return localised(service.name_en, service.name_ar) ?? ''
+}
+
+/** Searches both languages regardless of which one is displayed. */
 function matches(service: Service, needle: string): boolean {
   if (!needle) return true
   return (
@@ -38,7 +43,13 @@ export default function ServicePicker({
   const filtering = needle !== '' || categoryId !== null
 
   const categoryName = useMemo(
-    () => new Map(categories.map((category) => [category.id, category.name_en])),
+    () =>
+      new Map(
+        categories.map((category) => [
+          category.id,
+          localised(category.name_en, category.name_ar) ?? '',
+        ]),
+      ),
     [categories],
   )
 
@@ -59,7 +70,7 @@ export default function ServicePicker({
         (a, b) =>
           b.uses90d - a.uses90d ||
           b.uses - a.uses ||
-          a.service.name_en.localeCompare(b.service.name_en),
+          serviceName(a.service).localeCompare(serviceName(b.service)),
       )
       .slice(0, COMMON_LIMIT)
   }, [services, usage, filtering])
@@ -105,7 +116,7 @@ export default function ServicePicker({
               )
             }
           >
-            {category.name_en}
+            {localised(category.name_en, category.name_ar)}
           </button>
         ))}
       </div>
@@ -135,7 +146,7 @@ export default function ServicePicker({
                 onClick={() => onPick(service.id)}
               >
                 <span>
-                  {service.name_en}{' '}
+                  {serviceName(service)}{' '}
                   <span className="muted picker-cat">
                     {categoryName.get(service.category_id) ?? ''}
                   </span>
@@ -155,7 +166,7 @@ export default function ServicePicker({
         grouped.map(({ category, rows }) => (
           <section className="picker-section" key={category.id}>
             <div className="section-label">
-              <span>{category.name_en}</span>
+              <span>{localised(category.name_en, category.name_ar)}</span>
               <span className="muted">
                 <span className="num">{rows.length}</span>
               </span>
@@ -168,7 +179,7 @@ export default function ServicePicker({
                   className="picker-row"
                   onClick={() => onPick(service.id)}
                 >
-                  <span>{service.name_en}</span>
+                  <span>{serviceName(service)}</span>
                   <span className="muted num">
                     {money(service.default_labor_price)}
                   </span>
