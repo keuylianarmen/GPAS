@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { suggestCustomerName } from './translateService'
 import { isArabicScript } from './script'
+import { makeTrace } from './suggest'
 
 type Field = 'en' | 'ar'
 
@@ -20,12 +21,7 @@ export type CustomerNames = {
   accept: () => void
 }
 
-/** Every decision this hook makes is announced, because the interesting ones
- *  are the decisions to do nothing. A silent early return here reads to
- *  whoever is watching the Network tab as a dead code path. */
-function trace(message: string, detail: Record<string, unknown>) {
-  console.debug(`[customer names] ${message}`, detail)
-}
+const trace = makeTrace('customer names')
 
 /**
  * The two name fields, with the empty one offered a transliteration of the

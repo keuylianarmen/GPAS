@@ -1,8 +1,8 @@
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { VehicleDraft } from '../lib/vehicle'
 import { useLookup } from '../lib/useLookup'
-import { useVehicleModels } from '../lib/useVehicleModels'
+import ModelField from './ModelField'
 import LookupSelect from './LookupSelect'
 import { t } from '../lib/i18n'
 import AddMakeDialog from './AddMakeDialog'
@@ -21,8 +21,6 @@ export default function VehicleFields({
 }) {
   const categories = useLookup('vehicle_category')
   const makes = useLookup('vehicle_make')
-  const models = useVehicleModels(draft.make)
-  const modelListId = useId()
   const [addingMake, setAddingMake] = useState(false)
 
   function set(field: keyof VehicleDraft) {
@@ -80,19 +78,14 @@ export default function VehicleFields({
         </div>
         <label className="field">
           <span>{t('vehicleForm.model')}</span>
-          <input
+          {/* Suggests from the make's lineup and from what this shop has
+              already used; anything can still be typed. */}
+          <ModelField
+            make={draft.make}
             value={draft.model}
-            onChange={set('model')}
-            list={modelListId}
+            onChange={(model) => onChange({ ...draft, model })}
             disabled={disabled}
           />
-          {/* Typeahead over models already entered for this make; anything can
-              still be typed. */}
-          <datalist id={modelListId}>
-            {models.map((model) => (
-              <option key={model} value={model} />
-            ))}
-          </datalist>
         </label>
       </div>
 

@@ -459,6 +459,59 @@
   background: var(--surface);
 }
 
+/* Model typeahead ------------------------------------------------------ */
+
+/* The anchor the list hangs from. Inline-size rather than width so it fills
+   the field in either direction. */
+.typeahead {
+  position: relative;
+  inline-size: 100%;
+}
+
+.typeahead-list {
+  position: absolute;
+  inset-block-start: calc(100% + 4px);
+  inset-inline-start: 0;
+  inset-inline-end: 0;
+  z-index: 5;
+  max-block-size: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 20px rgb(26 28 29 / 12%);
+}
+
+.typeahead-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  inline-size: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  color: var(--ink);
+  text-align: start;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.typeahead-row--active {
+  background: var(--surface);
+}
+
+/* The Arabic spelling: a matching aid, not the value being stored, so it sits
+   back from the name it belongs to. */
+.typeahead-alt {
+  margin-inline-start: auto;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 /* A name the app suggested and nobody has touched yet. Dashed rather than
    coloured: it is a draft waiting to be confirmed, not a warning. */
 .field input.is-suggested {

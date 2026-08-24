@@ -57,6 +57,7 @@ export const en = {
   'common.notRecorded': 'Not recorded',
   'common.notSet': 'Not set',
   'common.km': 'km',
+  'common.suggested': 'suggested',
   // ── lib: vehicles, odometer, contact health, periods ───────────────────
   'customer.unnamed': 'Unnamed',
   'vehicle.noPlate': 'Vehicle, no plate',
@@ -127,6 +128,7 @@ export const en = {
   'vehicleForm.odometer': 'Odometer',
   'vehicleForm.odometerPlaceholder': '84210',
   'vehicleForm.addMake': 'Add a make',
+  'vehicleForm.modelSuggestions': 'Model suggestions',
   'vehicleForm.newTitle': 'New vehicle',
   'vehicleForm.editTitle': 'Edit vehicle',
   'vehicleForm.save': 'Save vehicle',
@@ -178,7 +180,6 @@ export const en = {
   'customerForm.nameAr': 'Name in Arabic',
   'customerForm.nameArHint': 'either name is enough',
   'customerForm.nameArPlaceholder': 'يوسف حداد',
-  'customerForm.suggested': 'suggested',
   'customerForm.movedHere': 'moved here',
   'customerForm.phone': 'Phone',
   'customerForm.phoneHint': 'needed for reminders',

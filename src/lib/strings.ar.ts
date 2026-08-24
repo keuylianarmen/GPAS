@@ -59,6 +59,7 @@ export const ar: Catalogue = {
   'common.notRecorded': 'غير مسجّل',
   'common.notSet': 'غير محدد',
   'common.km': 'كم',
+  'common.suggested': 'مقترح',
   // ── lib: vehicles, odometer, contact health, periods ───────────────────
   'customer.unnamed': 'بدون اسم',
   'vehicle.noPlate': 'بدون لوحة',
@@ -127,6 +128,7 @@ export const ar: Catalogue = {
   'vehicleForm.odometer': 'العداد',
   'vehicleForm.odometerPlaceholder': '84210',
   'vehicleForm.addMake': '+ إضافة ماركة',
+  'vehicleForm.modelSuggestions': 'اقتراحات الطراز',
   'vehicleForm.newTitle': 'مركبة جديدة',
   'vehicleForm.editTitle': 'تعديل المركبة',
   'vehicleForm.save': 'حفظ المركبة',
@@ -175,7 +177,6 @@ export const ar: Catalogue = {
   'customerForm.nameAr': 'الاسم بالعربية',
   'customerForm.nameArHint': 'يكفي أحد الاسمين',
   'customerForm.nameArPlaceholder': 'يوسف حداد',
-  'customerForm.suggested': 'مقترح',
   'customerForm.movedHere': 'نُقل إلى هنا',
   'customerForm.phone': 'رقم الهاتف',
   'customerForm.phoneHint': 'مطلوب لإرسال التذكيرات',

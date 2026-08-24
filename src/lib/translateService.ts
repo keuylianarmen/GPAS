@@ -9,7 +9,8 @@ export type TranslationResult =
 type RequestBody = {
   name: string
   categoryId?: number
-  mode?: 'transliterate'
+  mode?: 'transliterate' | 'model'
+  make?: string
 }
 
 /**
@@ -114,4 +115,46 @@ export async function suggestCustomerName(name: string): Promise<string | null> 
     console.warn('No name suggestion for', name, '—', thrown)
     return null
   }
+}
+
+export type CatalogModel = { name_en: string; name_ar: string | null }
+
+/**
+ * A make's whole model lineup, fetched once per make ever and stored server
+ * side. Called again for the same make, the function replays what it stored.
+ *
+ * Null means the call failed and nothing was recorded, so it is worth trying
+ * again. An empty array means the make was asked about and has no confident
+ * lineup — that answer is recorded and will not be asked again.
+ */
+export async function fetchModelCatalog(make: string): Promise<CatalogModel[] | null> {
+  const { data, error } = await supabase.functions.invoke('translate-service', {
+    body: { mode: 'model', make },
+    // Longer than a name lookup: this is a list, and it happens once.
+    timeout: 30000,
+  })
+
+  if (error) {
+    console.warn('No model catalogue for', make, '—', error.message)
+    return null
+  }
+
+  const payload: unknown = data
+  if (payload === null || typeof payload !== 'object' || !('models' in payload)) {
+    console.warn('No model catalogue for', make, '— unexpected reply')
+    return null
+  }
+
+  const models = payload.models
+  if (!Array.isArray(models)) return null
+
+  return models.flatMap((row: unknown) => {
+    if (row === null || typeof row !== 'object' || !('name_en' in row)) return []
+    if (typeof row.name_en !== 'string' || row.name_en.trim() === '') return []
+    const nameAr =
+      'name_ar' in row && typeof row.name_ar === 'string' && row.name_ar.trim() !== ''
+        ? row.name_ar.trim()
+        : null
+    return [{ name_en: row.name_en.trim(), name_ar: nameAr }]
+  })
 }

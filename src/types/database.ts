@@ -1115,6 +1115,76 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_model_catalog: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          make: string
+          name_ar: string | null
+          name_en: string
+          origin: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          make: string
+          name_ar?: string | null
+          name_en: string
+          origin?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          make?: string
+          name_ar?: string | null
+          name_en?: string
+          origin?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_model_catalog_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_model_fetches: {
+        Row: {
+          fetched_at: string
+          fetched_by: string | null
+          make: string
+          model_count: number
+        }
+        Insert: {
+          fetched_at?: string
+          fetched_by?: string | null
+          make: string
+          model_count?: number
+        }
+        Update: {
+          fetched_at?: string
+          fetched_by?: string | null
+          make?: string
+          model_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_model_fetches_fetched_by_fkey"
+            columns: ["fetched_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicles: {
         Row: {
           category: string | null

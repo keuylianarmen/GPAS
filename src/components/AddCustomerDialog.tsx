@@ -160,7 +160,7 @@ export default function AddCustomerDialog({
             <span className="field-hint">{t('customerForm.nameEnHint')}</span>
             {enMark && (
               <> <span className="field-hint">
-                {t(enMark === 'suggested' ? 'customerForm.suggested' : 'customerForm.movedHere')}
+                {t(enMark === 'suggested' ? 'common.suggested' : 'customerForm.movedHere')}
               </span></>
             )}
           </span>
@@ -181,7 +181,7 @@ export default function AddCustomerDialog({
             <span className="field-hint">{t('customerForm.nameArHint')}</span>
             {arMark && (
               <> <span className="field-hint">
-                {t(arMark === 'suggested' ? 'customerForm.suggested' : 'customerForm.movedHere')}
+                {t(arMark === 'suggested' ? 'common.suggested' : 'customerForm.movedHere')}
               </span></>
             )}
           </span>
