@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import Dialog from './Dialog'
+import { t } from '../lib/i18n'
 
 /** A service this customer currently has an unmuted pending reminder for. */
 export type MutableService = { id: string; name: string }
@@ -46,12 +47,12 @@ export default function MuteDialog({
     if (!canMute) return
 
     if (scope === 'service' && !serviceId) {
-      setError('Choose the service to mute.')
+      setError(t('mute.needService'))
       return
     }
 
     if (scope === 'all' && !canMuteAll) {
-      setError('Everything is already muted for this customer.')
+      setError(t('mute.alreadyAll'))
       return
     }
 
@@ -76,52 +77,43 @@ export default function MuteDialog({
   }
 
   return (
-    <Dialog title="Mute reminders" onClose={onClose} busy={saving}>
+    <Dialog title={t('mute.title')} onClose={onClose} busy={saving}>
       <form onSubmit={handleSubmit} noValidate>
         <label className="field">
-          <span>What to mute</span>
+          <span>{t('mute.scope')}</span>
           <select
             value={scope}
             onChange={(event) => setScope(event.target.value as 'service' | 'all')}
             disabled={saving}
           >
             <option value="service" disabled={!canMuteService}>
-              One service
+              {t('mute.scopeService')}
             </option>
             <option value="all" disabled={!canMuteAll}>
-              Every reminder for this customer
+              {t('mute.scopeAll')}
             </option>
           </select>
         </label>
 
         {!canMute ? (
-          <p className="field-note">
-            Everything is already muted for this customer. Unmute something first
-            to change it.
-          </p>
+          <p className="field-note">{t('mute.allDone')}</p>
         ) : !canMuteService ? (
-          <p className="field-note">
-            This customer has nothing pending left to mute service by service.
-            Muting everything still covers reminders raised later.
-          </p>
+          <p className="field-note">{t('mute.nothingLeft')}</p>
         ) : (
           !canMuteAll && (
-            <p className="field-note">
-              A blanket mute is already in place for this customer, so only
-              individual services can be added.
-            </p>
+            <p className="field-note">{t('mute.blanketInPlace')}</p>
           )
         )}
 
         {scope === 'service' && canMuteService && canMute && (
           <label className="field">
-            <span>Service</span>
+            <span>{t('mute.service')}</span>
             <select
               value={serviceId}
               onChange={(event) => setServiceId(event.target.value)}
               disabled={saving}
             >
-              <option value="">Choose a service</option>
+              <option value="">{t('mute.chooseService')}</option>
               {services.map((service) => (
                 <option key={service.id} value={service.id}>
                   {service.name}
@@ -133,20 +125,19 @@ export default function MuteDialog({
 
         <label className="field">
           <span>
-            Reason <span className="field-hint">optional</span>
+            {t('mute.reason')}{' '}
+            <span className="field-hint">{t('common.optional')}</span>
           </span>
           <input
             dir="auto"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Asked us not to"
+            placeholder={t('mute.reasonPlaceholder')}
             disabled={saving}
           />
         </label>
 
-        <p className="field-note">
-          Muting cancels any reminder of this kind that is already pending.
-        </p>
+        <p className="field-note">{t('mute.note')}</p>
 
         {error && (
           <p className="error" role="alert">
@@ -159,7 +150,7 @@ export default function MuteDialog({
           className="btn btn--dark btn--full"
           disabled={saving || !canMute}
         >
-          {saving ? 'Muting…' : 'Mute'}
+          {saving ? t('mute.submitting') : t('mute.submit')}
         </button>
       </form>
     </Dialog>

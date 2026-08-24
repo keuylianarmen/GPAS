@@ -1,5 +1,6 @@
 import { km } from '../lib/format'
 import { parseOptionalInteger } from '../lib/parse'
+import { t } from '../lib/i18n'
 
 export type OdometerReference =
   | { value: number; source: 'job' | 'vehicle' }
@@ -19,9 +20,7 @@ export default function OdometerHint({
 }) {
   if (reference === null) {
     return (
-      <span className="odo-hint">
-        No odometer reading on this job or its vehicle.
-      </span>
+      <span className="odo-hint">{t('odoHint.none')}</span>
     )
   }
 
@@ -30,13 +29,18 @@ export default function OdometerHint({
 
   return (
     <span className="odo-hint">
-      Now at <span className="num">{km(reference.value)} km</span>{' '}
-      {reference.source === 'job' ? 'on this job' : 'on the vehicle'}
+      {t('odoHint.nowAt')}{' '}
+      <span className="num">
+        {km(reference.value)} {t('common.km')}
+      </span>{' '}
+      {reference.source === 'job' ? t('odoHint.onJob') : t('odoHint.onVehicle')}
       {gap !== null && (
         <span className={gap > 0 ? 'odo-gap' : 'odo-gap odo-gap--warn'}>
           {' · '}
           {gap > 0 ? '+' : gap < 0 ? '−' : '±'}
-          <span className="num">{km(Math.abs(gap))} km</span>
+          <span className="num">
+            {km(Math.abs(gap))} {t('common.km')}
+          </span>
         </span>
       )}
     </span>

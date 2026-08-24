@@ -5,6 +5,8 @@ import { money } from './lib/format'
 import { todayIso } from './lib/date'
 import { customerLabel } from './lib/customer'
 import { jobVehicleLabel } from './lib/vehicle'
+import { t } from './lib/i18n'
+import { CONTACT_PROBLEM_LABELS } from './lib/contactHealth'
 
 type LiveReminder = Database['public']['Views']['v_reminders_live']['Row']
 
@@ -170,43 +172,51 @@ export default function Dashboard({
     }
   }, [today])
 
-  if (loading) return <p className="muted">Loading…</p>
+  if (loading) return <p className="muted">{t('app.loading')}</p>
 
   if (error) {
     return (
       <div className="card notice">
-        <p>Could not load the dashboard.</p>
+        <p>{t('dash.loadFailed')}</p>
         <p className="muted">{error}</p>
       </div>
     )
   }
 
   const contactFlags = [
-    { key: 'failed', label: 'Last attempt failed', value: counts.failed },
-    { key: 'no-phone', label: 'No phone number', value: counts.noPhone },
-    { key: 'no-opt-in', label: 'No WhatsApp opt-in', value: counts.noOptIn },
+    { key: 'failed', label: t(CONTACT_PROBLEM_LABELS.failed), value: counts.failed },
+    {
+      key: 'no-phone',
+      label: t(CONTACT_PROBLEM_LABELS['no-phone']),
+      value: counts.noPhone,
+    },
+    {
+      key: 'no-opt-in',
+      label: t(CONTACT_PROBLEM_LABELS['no-opt-in']),
+      value: counts.noOptIn,
+    },
   ] as const
 
   return (
     <>
       <div className="stat-grid">
         <div className="card stat">
-          <div className="stat-label">Jobs today</div>
+          <div className="stat-label">{t('dash.jobsToday')}</div>
           <div className="stat-value num">{counts.jobsToday}</div>
         </div>
         <div className="card stat">
-          <div className="stat-label">Revenue this month</div>
+          <div className="stat-label">{t('dash.revenueThisMonth')}</div>
           <div className="stat-value num">
             {money(counts.revenueThisMonth)}
-            <span className="stat-unit">JOD</span>
+            <span className="stat-unit">{t('common.currency')}</span>
           </div>
         </div>
         <div className="card stat">
-          <div className="stat-label">Reminders due</div>
+          <div className="stat-label">{t('dash.remindersDue')}</div>
           <div className="stat-value num">{dueReminders.length}</div>
         </div>
         <div className="card stat">
-          <div className="stat-label">Customers</div>
+          <div className="stat-label">{t('dash.customers')}</div>
           <div className="stat-value num">{counts.customers}</div>
         </div>
       </div>
@@ -214,24 +224,26 @@ export default function Dashboard({
       <div className="dash-columns">
         <section>
           <div className="section-label">
-            <span>Recent jobs</span>
+            <span>{t('dash.recentJobs')}</span>
             <button
               type="button"
               className="btn btn--quiet btn--small"
               onClick={() => onNavigate('jobs')}
             >
-              See all
+              {t('action.seeAll')}
             </button>
           </div>
 
           {recentJobs.length === 0 ? (
-            <p className="empty">No jobs yet.</p>
+            <p className="empty">{t('dash.noJobs')}</p>
           ) : (
             recentJobs.map((job) => (
               <div className="card dash-row" key={job.id}>
                 <div className="dash-row-main">
                   <div className="dash-row-title" dir="auto">
-                    {job.customers ? customerLabel(job.customers) : 'Unknown customer'}
+                    {job.customers
+                      ? customerLabel(job.customers)
+                      : t('dash.unknownCustomer')}
                   </div>
                   <div className="list-row-meta">
                     <span className="num">
@@ -243,7 +255,7 @@ export default function Dashboard({
                   <div className="list-row-meta">
                     {job.job_items
                       .flatMap((item) => (item.services ? [item.services.name_en] : []))
-                      .join(' · ') || 'No lines'}
+                      .join(' · ') || t('dash.noLines')}
                   </div>
                 </div>
                 <div className="dash-row-side">
@@ -261,24 +273,24 @@ export default function Dashboard({
 
         <section>
           <div className="section-label">
-            <span>Reminders due</span>
+            <span>{t('dash.remindersDue')}</span>
             <button
               type="button"
               className="btn btn--quiet btn--small"
               onClick={() => onNavigate('reminders')}
             >
-              See all
+              {t('action.seeAll')}
             </button>
           </div>
 
           {dueReminders.length === 0 ? (
-            <p className="empty">Nothing due right now.</p>
+            <p className="empty">{t('dash.nothingDue')}</p>
           ) : (
             dueReminders.slice(0, 5).map((row) => (
               <div className="card dash-row" key={row.id}>
                 <div className="dash-row-main">
                   <div className="dash-row-title">
-                    {row.service_en ?? 'Unknown service'}
+                    {row.service_en ?? t('dash.unknownService')}
                   </div>
                   <div className="list-row-meta">
                     <span dir="auto">{customerLabel(row)}</span>
@@ -295,11 +307,9 @@ export default function Dashboard({
       </div>
 
       <div className="section-label dash-health-head">
-        <span>Contact health</span>
+        <span>{t('dash.contactHealth')}</span>
       </div>
-      <p className="field-note">
-        Reminders for these customers can never be sent as things stand.
-      </p>
+      <p className="field-note">{t('dash.contactHealthNote')}</p>
 
       <div className="stat-grid">
         {contactFlags.map((flag) => (

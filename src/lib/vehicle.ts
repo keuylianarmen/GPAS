@@ -1,5 +1,6 @@
 import type { Database } from '../types/database'
 import { parseOptionalInteger } from './parse'
+import { t } from './i18n'
 
 type Vehicle = Database['public']['Tables']['vehicles']['Row']
 type VehicleInsert = Database['public']['Tables']['vehicles']['Insert']
@@ -26,7 +27,9 @@ export function isBlankVehicle(draft: VehicleDraft): boolean {
 
 export function describeVehicle(draft: VehicleDraft, index: number): string {
   const label = draft.plate.trim() || draft.make.trim() || draft.model.trim()
-  return label ? `vehicle ${index + 1} (${label})` : `vehicle ${index + 1}`
+  return label
+    ? t('vehicle.numberedNamed', { number: index + 1, label })
+    : t('vehicle.numbered', { number: index + 1 })
 }
 
 /**
@@ -38,12 +41,10 @@ export function vehicleInsertFrom(
   customerId: string,
 ): VehicleInsert | { error: string } {
   const year = parseOptionalInteger(draft.year)
-  if (year === 'invalid') return { error: 'Year must be a whole number, or left blank.' }
+  if (year === 'invalid') return { error: t('vehicle.badYear') }
 
   const odometer = parseOptionalInteger(draft.odometer)
-  if (odometer === 'invalid') {
-    return { error: 'Odometer must be a whole number, or left blank.' }
-  }
+  if (odometer === 'invalid') return { error: t('vehicle.badOdometer') }
 
   return {
     customer_id: customerId,
@@ -77,12 +78,10 @@ export function vehicleUpdateFrom(
   draft: VehicleDraft,
 ): VehicleUpdate | { error: string } {
   const year = parseOptionalInteger(draft.year)
-  if (year === 'invalid') return { error: 'Year must be a whole number, or left blank.' }
+  if (year === 'invalid') return { error: t('vehicle.badYear') }
 
   const odometer = parseOptionalInteger(draft.odometer)
-  if (odometer === 'invalid') {
-    return { error: 'Odometer must be a whole number, or left blank.' }
-  }
+  if (odometer === 'invalid') return { error: t('vehicle.badOdometer') }
 
   return {
     plate: draft.plate.trim() || null,
@@ -109,7 +108,7 @@ type VehicleLike = {
 export function vehicleLabel(vehicle: VehicleLike): string {
   if (vehicle.plate) return vehicle.plate
   const spec = [vehicle.make, vehicle.model].filter(Boolean).join(' ')
-  return spec || 'Vehicle, no plate'
+  return spec || t('vehicle.noPlate')
 }
 
 /**
@@ -120,6 +119,6 @@ export function jobVehicleLabel(
   vehicleId: string | null,
   vehicle: VehicleLike | null | undefined,
 ): string {
-  if (vehicleId === null) return 'No vehicle linked'
-  return vehicle ? vehicleLabel(vehicle) : 'Vehicle, no plate'
+  if (vehicleId === null) return t('vehicle.notLinked')
+  return vehicle ? vehicleLabel(vehicle) : t('vehicle.noPlate')
 }

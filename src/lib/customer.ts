@@ -1,4 +1,5 @@
 import type { Database } from '../types/database'
+import { t } from './i18n'
 
 type Customer = Database['public']['Tables']['customers']['Row']
 
@@ -6,7 +7,7 @@ type Customer = Database['public']['Tables']['customers']['Row']
 export function customerLabel(
   customer: Pick<Customer, 'name_en' | 'name_ar'>,
 ): string {
-  return customer.name_en || customer.name_ar || 'Unnamed'
+  return customer.name_en || customer.name_ar || t('customer.unnamed')
 }
 
 /** Phones are stored with spacing, so match on the digits too. */

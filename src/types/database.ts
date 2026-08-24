@@ -101,6 +101,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_item_parts_job_item_id_fkey"
+            columns: ["job_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
+            referencedColumns: ["job_item_id"]
+          },
+          {
             foreignKeyName: "job_item_parts_part_id_fkey"
             columns: ["part_id"]
             isOneToOne: false
@@ -193,6 +200,13 @@ export type Database = {
             referencedColumns: ["job_id"]
           },
           {
+            foreignKeyName: "job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
+            referencedColumns: ["job_id"]
+          },
+          {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
@@ -203,7 +217,21 @@ export type Database = {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_service"
             referencedColumns: ["service_id"]
           },
           {
@@ -291,6 +319,13 @@ export type Database = {
             foreignKeyName: "jobs_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_customer_activity"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_customer_contact_health"
             referencedColumns: ["customer_id"]
           },
@@ -298,7 +333,28 @@ export type Database = {
             foreignKeyName: "jobs_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_lapsed_customers"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
             referencedColumns: ["customer_id"]
           },
           {
@@ -326,7 +382,21 @@ export type Database = {
             foreignKeyName: "jobs_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
             referencedColumns: ["vehicle_id"]
           },
           {
@@ -494,6 +564,13 @@ export type Database = {
             foreignKeyName: "reminder_mutes_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_customer_activity"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_customer_contact_health"
             referencedColumns: ["customer_id"]
           },
@@ -501,7 +578,28 @@ export type Database = {
             foreignKeyName: "reminder_mutes_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_lapsed_customers"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
             referencedColumns: ["customer_id"]
           },
           {
@@ -529,7 +627,21 @@ export type Database = {
             foreignKeyName: "reminder_mutes_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_service"
             referencedColumns: ["service_id"]
           },
         ]
@@ -581,6 +693,13 @@ export type Database = {
             columns: ["reminder_id"]
             isOneToOne: false
             referencedRelation: "reminders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_sends_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
             referencedColumns: ["id"]
           },
           {
@@ -662,6 +781,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reminders_job_item_id_fkey"
+            columns: ["job_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
+            referencedColumns: ["job_item_id"]
+          },
+          {
             foreignKeyName: "reminders_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
@@ -672,14 +798,42 @@ export type Database = {
             foreignKeyName: "reminders_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "reminders_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "reminders_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_service"
             referencedColumns: ["service_id"]
           },
           {
             foreignKeyName: "reminders_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "reminders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "reminders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
             referencedColumns: ["vehicle_id"]
           },
           {
@@ -750,7 +904,21 @@ export type Database = {
             foreignKeyName: "service_parts_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "service_parts_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "service_parts_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_service"
             referencedColumns: ["service_id"]
           },
         ]
@@ -774,6 +942,7 @@ export type Database = {
           pricing_model: Database["public"]["Enums"]["pricing_model"]
           reminder_km: number | null
           reminder_months: number | null
+          tracks_tires: boolean
           triggers_reminder: boolean
         }
         Insert: {
@@ -794,6 +963,7 @@ export type Database = {
           pricing_model?: Database["public"]["Enums"]["pricing_model"]
           reminder_km?: number | null
           reminder_months?: number | null
+          tracks_tires?: boolean
           triggers_reminder?: boolean
         }
         Update: {
@@ -814,6 +984,7 @@ export type Database = {
           pricing_model?: Database["public"]["Enums"]["pricing_model"]
           reminder_km?: number | null
           reminder_months?: number | null
+          tracks_tires?: boolean
           triggers_reminder?: boolean
         }
         Relationships: [
@@ -823,6 +994,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "service_categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_category"
+            referencedColumns: ["category_id"]
           },
         ]
       }
@@ -989,7 +1167,28 @@ export type Database = {
             foreignKeyName: "vehicles_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_customer_activity"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "vehicles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_customer_contact_health"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "vehicles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_lapsed_customers"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "vehicles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
             referencedColumns: ["customer_id"]
           },
           {
@@ -1003,6 +1202,13 @@ export type Database = {
             foreignKeyName: "vehicles_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_tire_fitments"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "vehicles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_tow_leads"
             referencedColumns: ["id"]
           },
@@ -1010,6 +1216,21 @@ export type Database = {
       }
     }
     Views: {
+      v_customer_activity: {
+        Row: {
+          customer_id: string | null
+          days_since_last: number | null
+          first_job: string | null
+          jobs: number | null
+          last_job: string | null
+          lifetime_revenue: number | null
+          name_ar: string | null
+          name_en: string | null
+          phone: string | null
+          whatsapp_opt_in: boolean | null
+        }
+        Relationships: []
+      }
       v_customer_contact_health: {
         Row: {
           customer_id: string | null
@@ -1044,6 +1265,13 @@ export type Database = {
             foreignKeyName: "reminder_mutes_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_customer_activity"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_customer_contact_health"
             referencedColumns: ["customer_id"]
           },
@@ -1051,7 +1279,28 @@ export type Database = {
             foreignKeyName: "reminder_mutes_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "v_lapsed_customers"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
             referencedColumns: ["customer_id"]
           },
           {
@@ -1072,7 +1321,21 @@ export type Database = {
             foreignKeyName: "reminder_mutes_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "reminder_mutes_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_service"
             referencedColumns: ["service_id"]
           },
         ]
@@ -1120,7 +1383,21 @@ export type Database = {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_service"
             referencedColumns: ["service_id"]
           },
         ]
@@ -1185,6 +1462,13 @@ export type Database = {
             referencedColumns: ["job_id"]
           },
           {
+            foreignKeyName: "job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
+            referencedColumns: ["job_id"]
+          },
+          {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
@@ -1195,7 +1479,21 @@ export type Database = {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_service"
             referencedColumns: ["service_id"]
           },
           {
@@ -1211,6 +1509,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "service_categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_category"
+            referencedColumns: ["category_id"]
           },
         ]
       }
@@ -1257,6 +1562,13 @@ export type Database = {
             referencedColumns: ["job_id"]
           },
           {
+            foreignKeyName: "job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
+            referencedColumns: ["job_id"]
+          },
+          {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
@@ -1267,7 +1579,21 @@ export type Database = {
             foreignKeyName: "job_items_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_service"
             referencedColumns: ["service_id"]
           },
           {
@@ -1276,6 +1602,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "service_categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_category"
+            referencedColumns: ["category_id"]
           },
         ]
       }
@@ -1306,7 +1639,21 @@ export type Database = {
             foreignKeyName: "jobs_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
             referencedRelation: "v_reminders_live"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
             referencedColumns: ["vehicle_id"]
           },
           {
@@ -1318,6 +1665,21 @@ export type Database = {
           },
         ]
       }
+      v_lapsed_customers: {
+        Row: {
+          customer_id: string | null
+          days_since_last: number | null
+          first_job: string | null
+          jobs: number | null
+          last_job: string | null
+          lifetime_revenue: number | null
+          name_ar: string | null
+          name_en: string | null
+          phone: string | null
+          whatsapp_opt_in: boolean | null
+        }
+        Relationships: []
+      }
       v_margin_by_category: {
         Row: {
           code: string | null
@@ -1328,6 +1690,30 @@ export type Database = {
           month: string | null
           name_en: string | null
           revenue: number | null
+        }
+        Relationships: []
+      }
+      v_reminders_dismissed: {
+        Row: {
+          category: string | null
+          current_odometer: number | null
+          customer_id: string | null
+          due_date: string | null
+          due_odometer: number | null
+          id: string | null
+          make: string | null
+          model: string | null
+          name_ar: string | null
+          name_en: string | null
+          note: string | null
+          phone: string | null
+          plate: string | null
+          service_ar: string | null
+          service_en: string | null
+          service_id: string | null
+          status: Database["public"]["Enums"]["reminder_status"] | null
+          vehicle_id: string | null
+          whatsapp_opt_in: boolean | null
         }
         Relationships: []
       }
@@ -1359,6 +1745,132 @@ export type Database = {
         }
         Relationships: []
       }
+      v_retention_by_month: {
+        Row: {
+          active_customers: number | null
+          month: string | null
+          new_customers: number | null
+          returning_customers: number | null
+        }
+        Relationships: []
+      }
+      v_revenue_by_category: {
+        Row: {
+          category: string | null
+          category_ar: string | null
+          category_code: string | null
+          category_id: number | null
+          jobs: number | null
+          lines: number | null
+          month: string | null
+          revenue: number | null
+        }
+        Relationships: []
+      }
+      v_revenue_by_month: {
+        Row: {
+          avg_job_value: number | null
+          customers: number | null
+          jobs: number | null
+          month: string | null
+          revenue: number | null
+        }
+        Relationships: []
+      }
+      v_revenue_by_service: {
+        Row: {
+          avg_price: number | null
+          category: string | null
+          month: string | null
+          revenue: number | null
+          service: string | null
+          service_ar: string | null
+          service_id: string | null
+          times_done: number | null
+        }
+        Relationships: []
+      }
+      v_service_usage: {
+        Row: {
+          last_used: string | null
+          service_id: string | null
+          uses: number | null
+          uses_90d: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_live"
+            referencedColumns: ["service_id"]
+          },
+          {
+            foreignKeyName: "job_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "v_revenue_by_service"
+            referencedColumns: ["service_id"]
+          },
+        ]
+      }
+      v_tire_brands: {
+        Row: {
+          brand: string | null
+          last_used: string | null
+          uses: number | null
+        }
+        Relationships: []
+      }
+      v_tire_fitments: {
+        Row: {
+          brand: string | null
+          condition: string | null
+          customer_id: string | null
+          dot: string | null
+          job_id: string | null
+          job_item_id: string | null
+          job_no: number | null
+          make: string | null
+          model: string | null
+          name_ar: string | null
+          name_en: string | null
+          odometer: number | null
+          phone: string | null
+          plate: string | null
+          qty: number | null
+          run_flat: boolean | null
+          service: string | null
+          size: string | null
+          start_date: string | null
+          vehicle_id: string | null
+          warranty_months: number | null
+          warranty_until: string | null
+        }
+        Relationships: []
+      }
+      v_tire_sizes: {
+        Row: {
+          last_used: string | null
+          size: string | null
+          uses: number | null
+        }
+        Relationships: []
+      }
       v_tow_leads: {
         Row: {
           id: string | null
@@ -1379,6 +1891,44 @@ export type Database = {
           uses: number | null
         }
         Relationships: []
+      }
+      v_vehicle_tire_sizes: {
+        Row: {
+          last_brand: string | null
+          last_fitted: string | null
+          size: string | null
+          vehicle_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_dismissed"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "v_reminders_live"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "v_tire_fitments"
+            referencedColumns: ["vehicle_id"]
+          },
+          {
+            foreignKeyName: "jobs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {

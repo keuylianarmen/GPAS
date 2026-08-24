@@ -1,14 +1,15 @@
 import type { Database } from '../types/database'
+import type { StringKey } from './i18n'
 
 export type ContactHealth =
   Database['public']['Views']['v_customer_contact_health']['Row']
 
 export type ContactProblem = 'failed' | 'no-phone' | 'no-opt-in'
 
-export const CONTACT_PROBLEM_LABELS: Record<ContactProblem, string> = {
-  failed: 'Last attempt failed',
-  'no-phone': 'No phone number',
-  'no-opt-in': 'No WhatsApp opt-in',
+export const CONTACT_PROBLEM_LABELS: Record<ContactProblem, StringKey> = {
+  failed: 'contact.failed',
+  'no-phone': 'contact.noPhone',
+  'no-opt-in': 'contact.noOptIn',
 }
 
 /**

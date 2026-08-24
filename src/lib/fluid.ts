@@ -1,4 +1,5 @@
 import type { Database, Json } from '../types/database'
+import { detailsObject, detailsText, mergeDetails } from './details'
 
 type Service = Database['public']['Tables']['services']['Row']
 
@@ -29,23 +30,13 @@ export function unitSuffix(unit: string | null): string {
   return unit ?? ''
 }
 
-function asObject(details: Json): Record<string, Json | undefined> {
-  return details !== null && typeof details === 'object' && !Array.isArray(details)
-    ? details
-    : {}
-}
-
-function asText(value: Json | undefined): string {
-  return value === null || value === undefined ? '' : String(value)
-}
-
 export function fluidDraftFromDetails(details: Json): FluidDraft {
-  const object = asObject(details)
+  const object = detailsObject(details)
   return {
-    type: asText(object.fluid_type),
-    grade: asText(object.fluid_grade),
-    brand: asText(object.fluid_brand),
-    qty: asText(object.fluid_qty),
+    type: detailsText(object.fluid_type),
+    grade: detailsText(object.fluid_grade),
+    brand: detailsText(object.fluid_brand),
+    qty: detailsText(object.fluid_qty),
   }
 }
 
@@ -59,31 +50,11 @@ export function sameFluid(a: FluidDraft, b: FluidDraft): boolean {
  * an empty string.
  */
 export function mergeFluidDetails(existing: Json, draft: FluidDraft): Json {
-  const next: Record<string, Json | undefined> = { ...asObject(existing) }
-
-  const values: Record<string, string> = {
+  const qty = Number(draft.qty.trim())
+  return mergeDetails(existing, {
     fluid_type: draft.type.trim(),
     fluid_grade: draft.grade.trim(),
     fluid_brand: draft.brand.trim(),
-  }
-
-  for (const [key, value] of Object.entries(values)) {
-    if (value) next[key] = value
-    else delete next[key]
-  }
-
-  const qty = Number(draft.qty.trim())
-  if (draft.qty.trim() && Number.isFinite(qty)) next.fluid_qty = qty
-  else delete next.fluid_qty
-
-  return next as Json
-}
-
-/** Details for a brand new line — nothing to preserve. */
-export function fluidDetails(draft: FluidDraft): Json {
-  return mergeFluidDetails({}, draft)
-}
-
-export function hasFluidValues(details: Json): boolean {
-  return Object.keys(asObject(details)).length > 0
+    fluid_qty: draft.qty.trim() && Number.isFinite(qty) ? qty : undefined,
+  })
 }

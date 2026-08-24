@@ -5,22 +5,30 @@ import { km, money } from './lib/format'
 import { dueDefaults } from './lib/due'
 import {
   emptyFluidDraft,
-  fluidDetails,
   fluidDraftFromDetails,
-  hasFluidValues,
-  mergeFluidDetails,
   sameFluid,
   usesFluid,
 } from './lib/fluid'
+import { lineDetails } from './lib/lineDetails'
 import type { FluidDraft } from './lib/fluid'
+import {
+  emptyTireDraft,
+  sameTire,
+  tireDraftFromDetails,
+  tracksTires,
+} from './lib/tire'
+import type { TireDraft } from './lib/tire'
 import { customerLabel } from './lib/customer'
 import { jobVehicleLabel, vehicleLabel } from './lib/vehicle'
 import { parseOptionalInteger, priceValue } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import type { OdometerWarning } from './lib/odometer'
 import Dialog from './components/Dialog'
+import ServicePicker from './components/ServicePicker'
+import { t, tn } from './lib/i18n'
 import PriceFields from './components/PriceFields'
 import FluidFields from './components/FluidFields'
+import TireFields from './components/TireFields'
 import OdometerHint from './components/OdometerHint'
 import type { OdometerReference } from './components/OdometerHint'
 import VehicleDialog from './components/VehicleDialog'
@@ -190,7 +198,7 @@ export default function Jobs({ staff }: { staff: Staff }) {
     <>
       <div className="toolbar">
         <label className="field toolbar-field">
-          <span>Customer</span>
+          <span>{t('jobs.customer')}</span>
           <select
             value={customerFilter}
             onChange={(event) => {
@@ -198,7 +206,7 @@ export default function Jobs({ staff }: { staff: Staff }) {
               setJobsReady(false)
             }}
           >
-            <option value="">All customers</option>
+            <option value="">{t('jobs.allCustomers')}</option>
             {customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
                 {customerLabel(customer)}
@@ -208,7 +216,7 @@ export default function Jobs({ staff }: { staff: Staff }) {
         </label>
 
         <label className="field toolbar-field">
-          <span>From</span>
+          <span>{t('jobs.from')}</span>
           <input
             className="num"
             type="date"
@@ -221,7 +229,7 @@ export default function Jobs({ staff }: { staff: Staff }) {
         </label>
 
         <label className="field toolbar-field">
-          <span>To</span>
+          <span>{t('jobs.to')}</span>
           <input
             className="num"
             type="date"
@@ -244,7 +252,7 @@ export default function Jobs({ staff }: { staff: Staff }) {
               setJobsReady(false)
             }}
           >
-            Clear filters
+            {t('jobs.clearFilters')}
           </button>
         )}
       </div>
@@ -256,9 +264,9 @@ export default function Jobs({ staff }: { staff: Staff }) {
       )}
 
       {loading ? (
-        <p className="muted">Loading jobs…</p>
+        <p className="muted">{t('jobs.loading')}</p>
       ) : jobs.length === 0 ? (
-        <p className="empty">No jobs match these filters.</p>
+        <p className="empty">{t('jobs.noMatch')}</p>
       ) : (
         <>
           {jobs.map((job) => {
@@ -274,7 +282,9 @@ export default function Jobs({ staff }: { staff: Staff }) {
                   <div className="job-row-title">
                     <span className="num job-row-no">#{job.job_no}</span>
                     <span dir="auto">
-                      {job.customers ? customerLabel(job.customers) : 'Unknown customer'}
+                      {job.customers
+                        ? customerLabel(job.customers)
+                        : t('jobs.unknownCustomer')}
                     </span>
                   </div>
                   <div className="list-row-meta">
@@ -284,14 +294,18 @@ export default function Jobs({ staff }: { staff: Staff }) {
                     </span>{' '}
                     ·{' '}
                     <span className="num">{job.job_items[0]?.count ?? 0}</span>{' '}
-                    {(job.job_items[0]?.count ?? 0) === 1 ? 'line' : 'lines'}
+                    {(job.job_items[0]?.count ?? 0) === 1
+                      ? t('jobs.linesOne')
+                      : t('jobs.linesOther')}
                     {job.payment_method
                       ? ` · ${paymentLabels.get(job.payment_method) ?? job.payment_method}`
                       : ''}
                     {edited && (
                       <>
                         {' · '}
-                        <span className="job-edited">edited {edited}</span>
+                        <span className="job-edited">
+                          {t('jobs.editedOn', { date: edited })}
+                        </span>
                       </>
                     )}
                   </div>
@@ -305,8 +319,7 @@ export default function Jobs({ staff }: { staff: Staff }) {
 
           {jobs.length === LIST_LIMIT && (
             <p className="field-note">
-              Showing the {LIST_LIMIT} most recent jobs. Narrow the filters to see
-              older ones.
+              {t('jobs.listCapped', { limit: LIST_LIMIT })}
             </p>
           )}
         </>
@@ -350,6 +363,7 @@ type ItemDraft = {
   nextDueKm: string
   nextDueDate: string
   fluid: FluidDraft
+  tire: TireDraft
   /** The line's stored details, so a save preserves keys this screen does not edit. */
   details: Json
   /** Display only for now — the line's subcontractor is not editable here. */
@@ -369,6 +383,7 @@ function draftFromItem(item: JobItemWithSub): ItemDraft {
     nextDueKm: item.next_due_odometer === null ? '' : String(item.next_due_odometer),
     nextDueDate: item.next_due_date ?? '',
     fluid: fluidDraftFromDetails(item.details),
+    tire: tireDraftFromDetails(item.details),
     details: item.details,
     subcontractor: item.subcontractors?.name ?? null,
   }
@@ -381,7 +396,8 @@ function sameDraft(a: ItemDraft, b: ItemDraft): boolean {
     a.subPrice === b.subPrice &&
     a.nextDueKm === b.nextDueKm &&
     a.nextDueDate === b.nextDueDate &&
-    sameFluid(a.fluid, b.fluid)
+    sameFluid(a.fluid, b.fluid) &&
+    sameTire(a.tire, b.tire)
   )
 }
 
@@ -420,6 +436,7 @@ function JobDialog({
   const [preparing, setPreparing] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null)
   const [nextKey, setNextKey] = useState(1)
+  const [pickingService, setPickingService] = useState<string | 'new' | null>(null)
 
   const serviceById = useMemo(
     () => new Map(services.map((service) => [service.id, service])),
@@ -498,19 +515,22 @@ function JobDialog({
     setDrafts((current) => current.filter((row) => row.key !== draft.key))
   }
 
-  function addDraft() {
+  function addDraft(serviceId: string) {
+    const service = serviceById.get(serviceId)
     setDrafts((current) => [
       ...current,
       {
         key: `new-${nextKey}`,
         id: null,
-        serviceId: '',
+        serviceId,
         partPrice: '',
-        laborPrice: '',
+        laborPrice:
+          service?.default_labor_price == null ? '' : String(service.default_labor_price),
         subPrice: '',
-        nextDueKm: '',
-        nextDueDate: '',
+        // Based on the job's own date, not today — the line belongs to that visit.
+        ...dueDefaults(service, jobOdometer, job.start_date),
         fluid: emptyFluidDraft(),
+        tire: emptyTireDraft(),
         details: {},
         subcontractor: null,
       },
@@ -526,8 +546,9 @@ function JobDialog({
         service?.default_labor_price == null ? '' : String(service.default_labor_price),
       partPrice: '',
       subPrice: '',
-      // A different service means a different fluid, so start clean.
+      // A different service means different consumables, so start clean.
       fluid: emptyFluidDraft(),
+      tire: emptyTireDraft(),
       // Based on the job's own date, not today — this line belongs to that visit.
       ...dueDefaults(service, jobOdometer, job.start_date),
     })
@@ -587,7 +608,7 @@ function JobDialog({
     setConfirming(null)
     const parsedOdometer = parseOptionalInteger(odometer)
     if (parsedOdometer === 'invalid') {
-      setError('Odometer must be a whole number, or left blank.')
+      setError(t('jobEdit.badOdometer'))
       return
     }
 
@@ -611,7 +632,8 @@ function JobDialog({
           vehicle_id: nextVehicleId,
         })
         .eq('id', job.id)
-      if (jobError) failures.push(`job details: ${jobError.message}`)
+      if (jobError)
+        failures.push(`${t('jobEdit.failedJobDetails')}: ${jobError.message}`)
     }
 
     if (removedIds.length > 0) {
@@ -620,7 +642,8 @@ function JobDialog({
         .from('job_items')
         .delete()
         .in('id', removedIds)
-      if (deleteError) failures.push(`removing lines: ${deleteError.message}`)
+      if (deleteError)
+        failures.push(`${t('jobEdit.failedRemoving')}: ${deleteError.message}`)
     }
 
     for (const draft of drafts) {
@@ -640,12 +663,12 @@ function JobDialog({
           next_due_odometer: dueKm === 'invalid' ? null : dueKm,
           next_due_date: draft.nextDueDate || null,
           // Merged, so keys this screen does not edit survive the save.
-          details: mergeFluidDetails(draft.details, draft.fluid),
+          details: lineDetails(draft.details, draft.fluid, draft.tire),
         })
         .eq('id', draft.id)
 
       if (updateError) {
-        const name = serviceById.get(draft.serviceId)?.name_en ?? 'a line'
+        const name = serviceById.get(draft.serviceId)?.name_en ?? t('jobEdit.aLine')
         failures.push(`${name}: ${updateError.message}`)
       }
     }
@@ -655,11 +678,10 @@ function JobDialog({
       const { error: insertError } = await supabase.from('job_items').insert(
         added.map((draft) => {
           const dueKm = parseOptionalInteger(draft.nextDueKm)
-          const details = fluidDetails(draft.fluid)
           return {
             job_id: job.id,
             service_id: draft.serviceId,
-            ...(hasFluidValues(details) ? { details } : {}),
+            details: lineDetails({}, draft.fluid, draft.tire),
             part_price: priceValue(draft.partPrice),
             labor_price: priceValue(draft.laborPrice),
             sub_price: priceValue(draft.subPrice),
@@ -669,13 +691,14 @@ function JobDialog({
           }
         }),
       )
-      if (insertError) failures.push(`new lines: ${insertError.message}`)
+      if (insertError)
+        failures.push(`${t('jobEdit.failedNewLines')}: ${insertError.message}`)
     }
 
     setSaving(false)
 
     if (failures.length > 0) {
-      setError(`Some changes did not save — ${failures.join('; ')}.`)
+      setError(t('jobEdit.someFailed', { reasons: failures.join('; ') }))
       return
     }
 
@@ -697,21 +720,31 @@ function JobDialog({
   const edited = editedOn(job)
 
   return (
-    <Dialog wide title={`Job #${job.job_no}`} onClose={onClose} busy={saving}>
+    <Dialog
+      wide
+      title={t('jobEdit.title', { number: job.job_no })}
+      onClose={onClose}
+      busy={saving}
+    >
       <div className="detail-lede">
         <div className="detail-phone" dir="auto">
-          {job.customers ? customerLabel(job.customers) : 'Unknown customer'}
+          {job.customers ? customerLabel(job.customers) : t('jobs.unknownCustomer')}
         </div>
         <div className="detail-since">
           <span className="num">{job.start_date}</span> ·{' '}
           <span className="num">{jobVehicleLabel(job.vehicle_id, job.vehicles)}</span> ·{' '}
           {job.status}
-          {edited && <span className="job-edited"> · edited {edited}</span>}
+          {edited && (
+            <span className="job-edited">
+              {' · '}
+              {t('jobs.editedOn', { date: edited })}
+            </span>
+          )}
         </div>
       </div>
 
       <label className="field field--narrow">
-        <span>Vehicle</span>
+        <span>{t('jobEdit.vehicle')}</span>
         <select
           value={vehicleId}
           onChange={(event) => {
@@ -720,7 +753,7 @@ function JobDialog({
           }}
           disabled={saving}
         >
-          <option value="">No vehicle</option>
+          <option value="">{t('jobEdit.noVehicle')}</option>
           {linkable.map((vehicle) => (
             <option key={vehicle.id} value={vehicle.id}>
               {vehicleLabel(vehicle)}
@@ -732,7 +765,8 @@ function JobDialog({
       <div className="grid-2">
         <label className="field">
           <span>
-            Odometer <span className="field-hint">km</span>
+            {t('jobEdit.odometer')}{' '}
+            <span className="field-hint">{t('common.km')}</span>
           </span>
           <input
             className="num"
@@ -743,13 +777,13 @@ function JobDialog({
           />
         </label>
         <label className="field">
-          <span>Payment method</span>
+          <span>{t('jobEdit.paymentMethod')}</span>
           <select
             value={paymentMethod}
             onChange={(event) => setPaymentMethod(event.target.value)}
             disabled={saving}
           >
-            <option value="">Not recorded</option>
+            <option value="">{t('common.notRecorded')}</option>
             {paymentMethods.map((method) => (
               <option key={method.id} value={method.value}>
                 {method.label_en}
@@ -760,17 +794,17 @@ function JobDialog({
       </div>
 
       {odometerWarning && (
-        <p className="field-warning">{ODOMETER_WARNINGS[odometerWarning]}</p>
+        <p className="field-warning">{t(ODOMETER_WARNINGS[odometerWarning])}</p>
       )}
 
       <div className="section-label">
-        <span>Lines</span>
+        <span>{t('jobEdit.lines')}</span>
       </div>
 
       {!loaded ? (
-        <p className="muted">Loading lines…</p>
+        <p className="muted">{t('jobEdit.loadingLines')}</p>
       ) : drafts.length === 0 ? (
-        <p className="empty">No lines on this job.</p>
+        <p className="empty">{t('jobEdit.noLines')}</p>
       ) : (
         drafts.map((draft) => {
           const service = serviceById.get(draft.serviceId)
@@ -787,35 +821,23 @@ function JobDialog({
               <div className="line-main">
                 {draft.id ? (
                   <div className="field">
-                    <span>Service</span>
-                    <div className="static-value">{service?.name_en ?? 'Unknown'}</div>
+                    <span>{t('jobEdit.service')}</span>
+                    <div className="static-value">
+                      {service?.name_en ?? t('jobEdit.unknownService')}
+                    </div>
                   </div>
                 ) : (
-                  <label className="field">
-                    <span>Service</span>
-                    <select
-                      value={draft.serviceId}
-                      onChange={(event) => chooseService(draft.key, event.target.value)}
+                  <div className="field">
+                    <span>{t('jobEdit.service')}</span>
+                    <button
+                      type="button"
+                      className="picker-trigger"
+                      onClick={() => setPickingService(draft.key)}
                       disabled={saving}
                     >
-                      <option value="">Choose a service</option>
-                      {categories.map((category) => {
-                        const options = services.filter(
-                          (row) => row.category_id === category.id,
-                        )
-                        if (options.length === 0) return null
-                        return (
-                          <optgroup key={category.id} label={category.name_en}>
-                            {options.map((row) => (
-                              <option key={row.id} value={row.id}>
-                                {row.name_en}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )
-                      })}
-                    </select>
-                  </label>
+                      {service ? service.name_en : t('jobEdit.chooseService')}
+                    </button>
+                  </div>
                 )}
 
                 <button
@@ -824,7 +846,7 @@ function JobDialog({
                   onClick={() => removeDraft(draft)}
                   disabled={saving}
                 >
-                  Remove
+                  {t('action.remove')}
                 </button>
               </div>
 
@@ -845,15 +867,24 @@ function JobDialog({
                 />
               )}
 
+              {service && tracksTires(service) && (
+                <TireFields
+                  draft={draft.tire}
+                  vehicleId={vehicleId || null}
+                  onChange={(next) => updateDraft(draft.key, { tire: next })}
+                  disabled={saving}
+                />
+              )}
+
               {draft.subcontractor && (
                 <p className="line-sub">
-                  Subcontracted to <strong>{draft.subcontractor}</strong>
+                  {t('jobEdit.subcontracted')} <strong>{draft.subcontractor}</strong>
                 </p>
               )}
 
               {!draft.id && !draft.serviceId && (
                 <p className="line-note muted">
-                  Choose a service — this line will be skipped otherwise.
+                  {t('jobEdit.chooseServiceHint')}
                 </p>
               )}
 
@@ -862,7 +893,8 @@ function JobDialog({
                   <div className="grid-2">
                     <label className="field">
                       <span>
-                        Next due at <span className="field-hint">km</span>
+                        {t('jobEdit.nextDueAt')}{' '}
+                        <span className="field-hint">{t('common.km')}</span>
                       </span>
                       <input
                         className="num"
@@ -879,7 +911,7 @@ function JobDialog({
                       />
                     </label>
                     <label className="field">
-                      <span>Next due by</span>
+                      <span>{t('jobEdit.nextDueBy')}</span>
                       <input
                         className="num"
                         type="date"
@@ -893,13 +925,12 @@ function JobDialog({
                   </div>
                   {noReminder && (
                     <p className="line-flag">
-                      Both due fields are empty, so this line carries no reminder.
+                      {t('jobEdit.noReminderBlank')}
                     </p>
                   )}
                   {wontCreate && (
                     <p className="line-flag">
-                      This job has no vehicle, so this line carries no reminder.
-                      Attaching one raises it.
+                      {t('jobEdit.noReminderNoVehicle')}
                     </p>
                   )}
                 </div>
@@ -913,12 +944,25 @@ function JobDialog({
         <button
           type="button"
           className="btn btn--ghost btn--small"
-          onClick={addDraft}
+          onClick={() => setPickingService('new')}
           disabled={saving || !loaded}
         >
-          Add line
+          {t('jobEdit.addLine')}
         </button>
       </div>
+
+      {pickingService !== null && (
+        <ServicePicker
+          services={services}
+          categories={categories}
+          onClose={() => setPickingService(null)}
+          onPick={(serviceId) => {
+            if (pickingService === 'new') addDraft(serviceId)
+            else chooseService(pickingService, serviceId)
+            setPickingService(null)
+          }}
+        />
+      )}
 
       {confirming && (
         <VehicleChangeConfirm
@@ -958,14 +1002,14 @@ function JobDialog({
         {staff.role === 'admin' ? (
           confirmingDelete ? (
             <div className="confirm-row">
-              <span className="muted">Delete this job for good?</span>
+              <span className="muted">{t('jobEdit.deleteConfirm')}</span>
               <button
                 type="button"
                 className="btn btn--danger btn--small"
                 onClick={handleDelete}
                 disabled={saving}
               >
-                Delete permanently
+                {t('jobEdit.deletePermanently')}
               </button>
               <button
                 type="button"
@@ -973,7 +1017,7 @@ function JobDialog({
                 onClick={() => setConfirmingDelete(false)}
                 disabled={saving}
               >
-                Keep
+                {t('jobEdit.keep')}
               </button>
             </div>
           ) : (
@@ -983,7 +1027,7 @@ function JobDialog({
               onClick={() => setConfirmingDelete(true)}
               disabled={saving}
             >
-              Delete job
+              {t('jobEdit.deleteJob')}
             </button>
           )
         ) : (
@@ -996,7 +1040,11 @@ function JobDialog({
           onClick={handleSaveClick}
           disabled={saving || preparing || !loaded}
         >
-          {saving ? 'Saving…' : preparing ? 'Checking…' : 'Save changes'}
+          {saving
+            ? t('action.saving')
+            : preparing
+              ? t('jobEdit.checking')
+              : t('action.saveChanges')}
         </button>
       </div>
     </Dialog>
@@ -1006,7 +1054,9 @@ function JobDialog({
 /* Vehicle change confirmation ------------------------------------------ */
 
 function reading(value: number | null): string {
-  return value === null ? 'not recorded' : `${km(value)} km`
+  return value === null
+    ? t('vehicleChange.notRecorded')
+    : `${km(value)} ${t('common.km')}`
 }
 
 function VehicleChangeConfirm({
@@ -1031,71 +1081,79 @@ function VehicleChangeConfirm({
   onConfirm: () => void
 }) {
   const clearing = newVehicle === null
-  const oldLabel = oldVehicle ? vehicleLabel(oldVehicle) : 'the previous vehicle'
+  const oldLabel = oldVehicle
+    ? vehicleLabel(oldVehicle)
+    : t('vehicleChange.previousVehicle')
   const parsedReading = parseOptionalInteger(jobReading)
 
   return (
     <div className="card notice confirm-panel">
       <p className="confirm-title">
         {clearing
-          ? `Remove ${oldLabel} from this job?`
-          : `Move this job to ${vehicleLabel(newVehicle)}?`}
+          ? t('vehicleChange.removeTitle', { vehicle: oldLabel })
+          : t('vehicleChange.moveTitle', { vehicle: vehicleLabel(newVehicle) })}
       </p>
 
       <p>
-        {change.moving === 0 ? (
-          <>No pending reminders were raised by this job&rsquo;s lines.</>
-        ) : clearing ? (
-          <>
-            <span className="num">{change.moving}</span> pending{' '}
-            {change.moving === 1 ? 'reminder' : 'reminders'} raised by this
-            job&rsquo;s lines will be cancelled.
-          </>
-        ) : (
-          <>
-            <span className="num">{change.moving}</span> pending{' '}
-            {change.moving === 1 ? 'reminder' : 'reminders'} will move from{' '}
-            {oldLabel} to {vehicleLabel(newVehicle)}.
-          </>
-        )}
+        {change.moving === 0
+          ? t('vehicleChange.noneRaised')
+          : clearing
+            ? tn(
+                change.moving,
+                'vehicleChange.cancelledOne',
+                'vehicleChange.cancelledOther',
+              )
+            : t(
+                change.moving === 1
+                  ? 'vehicleChange.movingOne'
+                  : 'vehicleChange.movingOther',
+                {
+                  count: change.moving,
+                  from: oldLabel,
+                  to: vehicleLabel(newVehicle),
+                },
+              )}
       </p>
 
       {!clearing && (
         <div className="confirm-figures">
           <div className="summary-row">
-            <span className="muted">{vehicleLabel(newVehicle)} reads</span>
+            <span className="muted">
+              {t('vehicleChange.reads', { vehicle: vehicleLabel(newVehicle) })}
+            </span>
             <span className="num">{reading(newVehicle.current_odometer)}</span>
           </div>
           <div className="summary-row">
-            <span className="muted">This job records</span>
+            <span className="muted">{t('vehicleChange.jobRecords')}</span>
             <span className="num">
               {parsedReading === 'invalid' || parsedReading === null
-                ? 'not recorded'
-                : `${km(parsedReading)} km`}
+                ? t('vehicleChange.notRecorded')
+                : `${km(parsedReading)} ${t('common.km')}`}
             </span>
           </div>
         </div>
       )}
 
       {odometerWarning && !clearing && (
-        <p className="field-warning">{ODOMETER_WARNINGS[odometerWarning]}</p>
+        <p className="field-warning">{t(ODOMETER_WARNINGS[odometerWarning])}</p>
       )}
 
       {oldVehicle && (
         <>
           <div className="confirm-figures">
             <div className="summary-row">
-              <span className="muted">{oldLabel} reads</span>
+              <span className="muted">
+                {t('vehicleChange.reads', { vehicle: oldLabel })}
+              </span>
               <span className="num">{reading(oldVehicle.current_odometer)}</span>
             </div>
             <div className="summary-row">
-              <span className="muted">Without this job it would read</span>
+              <span className="muted">{t('vehicleChange.withoutJob')}</span>
               <span className="num">{reading(change.withoutJob)}</span>
             </div>
           </div>
           <p className="field-note">
-            That reading is not rolled back — it may have been typed by hand.
-            Change it yourself if it is wrong.
+            {t('vehicleChange.notRolledBack')}
           </p>
           <button
             type="button"
@@ -1103,7 +1161,7 @@ function VehicleChangeConfirm({
             onClick={() => onEditOldVehicle(oldVehicle)}
             disabled={busy}
           >
-            Edit {oldLabel}
+            {t('vehicleChange.editVehicle', { vehicle: oldLabel })}
           </button>
         </>
       )}
@@ -1115,7 +1173,11 @@ function VehicleChangeConfirm({
           onClick={onConfirm}
           disabled={busy}
         >
-          {busy ? 'Saving…' : clearing ? 'Remove and save' : 'Move and save'}
+          {busy
+            ? t('action.saving')
+            : clearing
+              ? t('vehicleChange.removeAndSave')
+              : t('vehicleChange.moveAndSave')}
         </button>
         <button
           type="button"
@@ -1123,7 +1185,7 @@ function VehicleChangeConfirm({
           onClick={onCancel}
           disabled={busy}
         >
-          Cancel
+          {t('action.cancel')}
         </button>
       </div>
     </div>

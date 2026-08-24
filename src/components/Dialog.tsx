@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { t } from '../lib/i18n'
 
 /**
  * Native <dialog> wrapper. showModal() gives us Escape, the backdrop, and a
@@ -45,7 +46,7 @@ export default function Dialog({
             className="modal-close"
             onClick={() => dialogRef.current?.close()}
             disabled={busy}
-            aria-label="Close"
+            aria-label={t('action.close')}
           >
             ×
           </button>

@@ -4,6 +4,7 @@ import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import { customerLabel } from '../lib/customer'
 import Dialog from './Dialog'
+import { t } from '../lib/i18n'
 import VehicleFields from './VehicleFields'
 import {
   describeVehicle,
@@ -57,7 +58,7 @@ export default function AddCustomerDialog({
     // Mirrors the customer_identifiable check constraint, so the database error
     // never has to reach the user.
     if (!trimmed.nameEn && !trimmed.nameAr && !trimmed.phone) {
-      setError('A customer needs at least a name or a phone number.')
+      setError(t('customerForm.needIdentity'))
       return
     }
 
@@ -78,7 +79,7 @@ export default function AddCustomerDialog({
         .single()
 
       if (customerError || !data) {
-        setError(customerError?.message ?? 'The customer could not be saved.')
+        setError(customerError?.message ?? t('customerForm.saveFailed'))
         setSaving(false)
         return
       }
@@ -119,7 +120,14 @@ export default function AddCustomerDialog({
       // The customer and any working vehicles are already committed. Say so,
       // rather than implying the whole form failed.
       setError(
-        `${customerLabel(customer)} was saved, but ${failures.length === 1 ? 'one vehicle' : `${failures.length} vehicles`} could not be added — ${failures.join('; ')}. Fix and submit again to retry just those.`,
+        t('customerForm.partialSave', {
+          customer: customerLabel(customer),
+          failed:
+            failures.length === 1
+              ? t('customerForm.vehiclesFailedOne')
+              : t('customerForm.vehiclesFailedMany', { count: failures.length }),
+          reasons: failures.join('; '),
+        }),
       )
       setSaving(false)
       return
@@ -139,11 +147,12 @@ export default function AddCustomerDialog({
   }
 
   return (
-    <Dialog title="New customer" onClose={handleClose} busy={saving}>
+    <Dialog title={t('customerForm.newTitle')} onClose={handleClose} busy={saving}>
       <form onSubmit={handleSubmit} noValidate>
         <label className="field">
           <span>
-            Name <span className="field-hint">English</span>
+            {t('customerForm.nameEn')}{' '}
+            <span className="field-hint">{t('customerForm.nameEnHint')}</span>
           </span>
           <input
             value={nameEn}
@@ -155,7 +164,8 @@ export default function AddCustomerDialog({
 
         <label className="field">
           <span>
-            Name <span className="field-hint">Arabic</span>
+            {t('customerForm.nameAr')}{' '}
+            <span className="field-hint">{t('customerForm.nameArHint')}</span>
           </span>
           <input
             dir="auto"
@@ -167,14 +177,15 @@ export default function AddCustomerDialog({
 
         <label className="field">
           <span>
-            Phone <span className="field-hint">needed for reminders</span>
+            {t('customerForm.phone')}{' '}
+            <span className="field-hint">{t('customerForm.phoneHint')}</span>
           </span>
           <input
             className="num"
             type="tel"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
-            placeholder="079 000 0000"
+            placeholder={t('customerForm.phonePlaceholder')}
             disabled={saving}
           />
         </label>
@@ -186,15 +197,16 @@ export default function AddCustomerDialog({
             onChange={(event) => setOptIn(event.target.checked)}
             disabled={saving}
           />
-          Happy to receive WhatsApp reminders
+          {t('customerForm.optIn')}
         </label>
 
         {drafts.map((draft, index) => (
           <fieldset className="block" key={index} disabled={saving}>
             <legend className="block-legend">
-              Vehicle {index + 1} <span className="field-hint">optional</span>
+              {t('customerForm.vehicleLegend', { number: index + 1 })}{' '}
+              <span className="field-hint">{t('common.optional')}</span>
               {savedVehicles.has(index) && (
-                <span className="pill pill--green">Saved</span>
+                <span className="pill pill--green">{t('customerForm.vehicleSaved')}</span>
               )}
             </legend>
             <VehicleFields
@@ -212,7 +224,7 @@ export default function AddCustomerDialog({
             onClick={() => setDrafts((current) => [...current, emptyVehicleDraft()])}
             disabled={saving}
           >
-            Add another vehicle
+            {t('customerForm.addAnotherVehicle')}
           </button>
         </div>
 
@@ -223,7 +235,11 @@ export default function AddCustomerDialog({
         )}
 
         <button type="submit" className="btn btn--dark btn--full" disabled={saving}>
-          {saving ? 'Saving…' : savedCustomer ? 'Retry vehicles' : 'Save customer'}
+          {saving
+            ? t('action.saving')
+            : savedCustomer
+              ? t('customerForm.retryVehicles')
+              : t('customerForm.save')}
         </button>
       </form>
     </Dialog>

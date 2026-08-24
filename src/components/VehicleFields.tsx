@@ -4,6 +4,7 @@ import type { VehicleDraft } from '../lib/vehicle'
 import { useLookup } from '../lib/useLookup'
 import { useVehicleModels } from '../lib/useVehicleModels'
 import LookupSelect from './LookupSelect'
+import { t } from '../lib/i18n'
 import AddMakeDialog from './AddMakeDialog'
 
 export default function VehicleFields({
@@ -33,17 +34,17 @@ export default function VehicleFields({
     <>
       <div className="grid-2">
         <label className="field">
-          <span>Plate</span>
+          <span>{t('vehicleForm.plate')}</span>
           <input
             className="num"
             value={draft.plate}
             onChange={set('plate')}
-            placeholder="21-45678"
+            placeholder={t('vehicleForm.platePlaceholder')}
             disabled={disabled}
           />
         </label>
         <label className="field">
-          <span>VIN</span>
+          <span>{t('vehicleForm.vin')}</span>
           <input
             className="num"
             value={draft.vin}
@@ -56,7 +57,7 @@ export default function VehicleFields({
       <div className="grid-2">
         <div>
           <label className="field field--tight">
-            <span>Make</span>
+            <span>{t('vehicleForm.make')}</span>
             <LookupSelect
               value={draft.make}
               options={makes}
@@ -65,7 +66,7 @@ export default function VehicleFields({
               store="label_en"
               onChange={(next) => onChange({ ...draft, make: next, model: '' })}
               disabled={disabled}
-              blankLabel="Not set"
+              blankLabel={t('common.notSet')}
             />
           </label>
           <button
@@ -74,11 +75,11 @@ export default function VehicleFields({
             onClick={() => setAddingMake(true)}
             disabled={disabled}
           >
-            Add a make
+            {t('vehicleForm.addMake')}
           </button>
         </div>
         <label className="field">
-          <span>Model</span>
+          <span>{t('vehicleForm.model')}</span>
           <input
             value={draft.model}
             onChange={set('model')}
@@ -107,40 +108,42 @@ export default function VehicleFields({
 
       <div className="grid-2">
         <label className="field">
-          <span>Year</span>
+          <span>{t('vehicleForm.year')}</span>
           <input
             className="num"
             inputMode="numeric"
             value={draft.year}
             onChange={set('year')}
-            placeholder="2019"
+            placeholder={t('vehicleForm.yearPlaceholder')}
             disabled={disabled}
           />
         </label>
         <label className="field">
           <span>
-            Category <span className="field-hint">optional</span>
+            {t('vehicleForm.category')}{' '}
+            <span className="field-hint">{t('common.optional')}</span>
           </span>
           <LookupSelect
             value={draft.category}
             options={categories}
             onChange={(next) => onChange({ ...draft, category: next })}
             disabled={disabled}
-            blankLabel="Not set"
+            blankLabel={t('common.notSet')}
           />
         </label>
       </div>
 
       <label className="field field--narrow">
         <span>
-          Odometer <span className="field-hint">km</span>
+          {t('vehicleForm.odometer')}{' '}
+          <span className="field-hint">{t('common.km')}</span>
         </span>
         <input
           className="num"
           inputMode="numeric"
           value={draft.odometer}
           onChange={set('odometer')}
-          placeholder="84210"
+          placeholder={t('vehicleForm.odometerPlaceholder')}
           disabled={disabled}
         />
       </label>

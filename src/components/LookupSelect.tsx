@@ -1,4 +1,5 @@
 import type { LookupValue } from '../lib/useLookup'
+import { t } from '../lib/i18n'
 
 /**
  * Optional lookup-backed select. Shows `label_en` and clears back to null via
@@ -12,13 +13,14 @@ export default function LookupSelect({
   options,
   onChange,
   disabled = false,
-  blankLabel = 'Not recorded',
+  blankLabel,
   store = 'value',
 }: {
   value: string
   options: LookupValue[]
   onChange: (next: string) => void
   disabled?: boolean
+  /** Defaults to the shared "not recorded" wording. */
   blankLabel?: string
   store?: 'value' | 'label_en'
 }) {
@@ -32,7 +34,7 @@ export default function LookupSelect({
       onChange={(event) => onChange(event.target.value)}
       disabled={disabled}
     >
-      <option value="">{blankLabel}</option>
+      <option value="">{blankLabel ?? t('common.notRecorded')}</option>
       {value !== '' && !known && <option value={value}>{value}</option>}
       {options.map((option) => (
         <option key={option.id} value={stored(option)}>

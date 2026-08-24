@@ -3,6 +3,7 @@ import type { Database } from './types/database'
 import { supabase } from './lib/supabase'
 import { money, reminderRule } from './lib/format'
 import AddServiceDialog from './components/AddServiceDialog'
+import { t, tn } from './lib/i18n'
 
 type Category = Database['public']['Tables']['service_categories']['Row']
 type Service = Database['public']['Tables']['services']['Row']
@@ -76,16 +77,16 @@ export default function Services() {
   }
 
   if (loading) {
-    return <p className="muted">Loading services…</p>
+    return <p className="muted">{t('services.loading')}</p>
   }
 
   if (error) {
     return (
       <div className="card notice">
-        <p>Could not load the service catalogue.</p>
+        <p>{t('services.loadFailed')}</p>
         <p className="muted">{error}</p>
         <button type="button" className="btn btn--ghost btn--small" onClick={retry}>
-          Try again
+          {t('action.tryAgain')}
         </button>
       </div>
     )
@@ -94,15 +95,14 @@ export default function Services() {
   return (
     <>
       <div className="section-label">
-        <span>Service catalogue</span>
+        <span>{t('services.catalogue')}</span>
         <span className="muted">
-          <span className="num">{services.length}</span>{' '}
-          {services.length === 1 ? 'service' : 'services'}
+          {tn(services.length, 'services.countOne', 'services.countOther')}
         </span>
       </div>
 
       {categories.length === 0 && (
-        <p className="empty">No active service categories.</p>
+        <p className="empty">{t('services.noCategories')}</p>
       )}
 
       {categories.map((category) => {
@@ -127,7 +127,7 @@ export default function Services() {
             {open && (
               <div className="cat-body">
                 {rows.length === 0 ? (
-                  <p className="cat-row muted">No services in this category yet.</p>
+                  <p className="cat-row muted">{t('services.emptyCategory')}</p>
                 ) : (
                   rows.map((service) => {
                     const rule = reminderRule(
@@ -141,8 +141,8 @@ export default function Services() {
                           {service.triggers_reminder && (
                             <div className="service-meta muted">
                               {rule
-                                ? `Reminder: ${rule}`
-                                : 'Reminder: no interval set'}
+                                ? t('services.reminderRule', { rule })
+                                : t('services.reminderNoInterval')}
                             </div>
                           )}
                         </div>
@@ -160,7 +160,7 @@ export default function Services() {
                     className="btn btn--ghost btn--small"
                     onClick={() => setAddingTo(category)}
                   >
-                    Add service to {category.name_en}
+                    {t('services.addTo', { category: category.name_en })}
                   </button>
                 </div>
               </div>

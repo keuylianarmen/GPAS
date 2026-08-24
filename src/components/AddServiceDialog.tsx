@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { parseOptionalNumber, parseOptionalPositiveInteger } from '../lib/parse'
 import { useLookupListKeys } from '../lib/useLookupListKeys'
 import Dialog from './Dialog'
+import { t } from '../lib/i18n'
 
 type Category = Database['public']['Tables']['service_categories']['Row']
 type Service = Database['public']['Tables']['services']['Row']
@@ -47,19 +48,19 @@ export default function AddServiceDialog({
 
     const chosenCategoryId = fixedCategory ? fixedCategory.id : Number(categoryId)
     if (!chosenCategoryId) {
-      setError('Choose a category.')
+      setError(t('serviceForm.needCategory'))
       return
     }
 
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Enter a service name.')
+      setError(t('serviceForm.needName'))
       return
     }
 
     const parsedPrice = parseOptionalNumber(price)
     if (parsedPrice === 'invalid' || (parsedPrice !== null && parsedPrice < 0)) {
-      setError('Default price must be a positive number, or left blank.')
+      setError(t('serviceForm.badPrice'))
       return
     }
 
@@ -71,11 +72,11 @@ export default function AddServiceDialog({
       const parsedMonths = parseOptionalPositiveInteger(reminderMonths)
 
       if (parsedKm === 'invalid' || parsedMonths === 'invalid') {
-        setError('Distance and time must be whole numbers above zero, or left blank.')
+        setError(t('serviceForm.badInterval'))
         return
       }
       if (parsedKm === null && parsedMonths === null) {
-        setError('Give the reminder a distance, a time, or both.')
+        setError(t('serviceForm.needInterval'))
         return
       }
 
@@ -105,7 +106,7 @@ export default function AddServiceDialog({
       .single()
 
     if (insertError || !data) {
-      setError(insertError?.message ?? 'The service could not be saved.')
+      setError(insertError?.message ?? t('serviceForm.saveFailed'))
       setSaving(false)
       return
     }
@@ -115,20 +116,24 @@ export default function AddServiceDialog({
 
   return (
     <Dialog
-      title={fixedCategory ? `New service · ${fixedCategory.name_en}` : 'New service'}
+      title={
+        fixedCategory
+          ? t('serviceForm.titleInCategory', { category: fixedCategory.name_en })
+          : t('serviceForm.title')
+      }
       onClose={onClose}
       busy={saving}
     >
       <form onSubmit={handleSubmit} noValidate>
         {!fixedCategory && (
           <label className="field">
-            <span>Category</span>
+            <span>{t('serviceForm.category')}</span>
             <select
               value={categoryId}
               onChange={(event) => setCategoryId(event.target.value)}
               disabled={saving}
             >
-              <option value="">Choose a category</option>
+              <option value="">{t('serviceForm.chooseCategory')}</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name_en}
@@ -139,11 +144,11 @@ export default function AddServiceDialog({
         )}
 
         <label className="field">
-          <span>Service name</span>
+          <span>{t('serviceForm.name')}</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Radiator flush"
+            placeholder={t('serviceForm.namePlaceholder')}
             disabled={saving}
             autoFocus
           />
@@ -151,14 +156,15 @@ export default function AddServiceDialog({
 
         <label className="field">
           <span>
-            Default price <span className="field-hint">optional</span>
+            {t('serviceForm.price')}{' '}
+            <span className="field-hint">{t('common.optional')}</span>
           </span>
           <input
             className="num"
             inputMode="decimal"
             value={price}
             onChange={(event) => setPrice(event.target.value)}
-            placeholder="0.000"
+            placeholder={t('serviceForm.pricePlaceholder')}
             disabled={saving}
           />
         </label>
@@ -170,7 +176,7 @@ export default function AddServiceDialog({
             onChange={(event) => setRemind(event.target.checked)}
             disabled={saving}
           />
-          Schedule a reminder after this service
+          {t('serviceForm.remind')}
         </label>
 
         {remind && (
@@ -178,35 +184,34 @@ export default function AddServiceDialog({
             <div className="grid-2">
               <label className="field">
                 <span>
-                  Usual interval <span className="field-hint">km</span>
+                  {t('serviceForm.intervalKm')}{' '}
+                  <span className="field-hint">{t('common.km')}</span>
                 </span>
                 <input
                   className="num"
                   inputMode="numeric"
                   value={reminderKm}
                   onChange={(event) => setReminderKm(event.target.value)}
-                  placeholder="5000"
+                  placeholder={t('serviceForm.kmPlaceholder')}
                   disabled={saving}
                 />
               </label>
               <label className="field">
                 <span>
-                  Or <span className="field-hint">months</span>
+                  {t('serviceForm.intervalMonths')}{' '}
+                  <span className="field-hint">{t('serviceForm.months')}</span>
                 </span>
                 <input
                   className="num"
                   inputMode="numeric"
                   value={reminderMonths}
                   onChange={(event) => setReminderMonths(event.target.value)}
-                  placeholder="6"
+                  placeholder={t('serviceForm.monthsPlaceholder')}
                   disabled={saving}
                 />
               </label>
             </div>
-            <p className="field-note">
-              Used to prefill the due point when this service is added to a job.
-              The job line is what actually creates the reminder.
-            </p>
+            <p className="field-note">{t('serviceForm.reminderNote')}</p>
           </>
         )}
 
@@ -217,33 +222,34 @@ export default function AddServiceDialog({
             onChange={(event) => setUsesFluid(event.target.checked)}
             disabled={saving}
           />
-          This service uses a fluid
+          {t('serviceForm.usesFluid')}
         </label>
 
         {usesFluid && (
           <>
             <div className="grid-2">
               <label className="field">
-                <span>Measured in</span>
+                <span>{t('serviceForm.fluidUnit')}</span>
                 <select
                   value={fluidUnit}
                   onChange={(event) => setFluidUnit(event.target.value)}
                   disabled={saving}
                 >
-                  <option value="liters">Liters</option>
-                  <option value="grams">Grams</option>
+                  <option value="liters">{t('serviceForm.liters')}</option>
+                  <option value="grams">{t('serviceForm.grams')}</option>
                 </select>
               </label>
               <label className="field">
                 <span>
-                  Type list <span className="field-hint">optional</span>
+                  {t('serviceForm.typeList')}{' '}
+                  <span className="field-hint">{t('common.optional')}</span>
                 </span>
                 <select
                   value={fluidTypeList}
                   onChange={(event) => setFluidTypeList(event.target.value)}
                   disabled={saving}
                 >
-                  <option value="">No standard list</option>
+                  <option value="">{t('serviceForm.noTypeList')}</option>
                   {listKeys.map((key) => (
                     <option key={key} value={key}>
                       {key}
@@ -254,14 +260,15 @@ export default function AddServiceDialog({
             </div>
             <label className="field">
               <span>
-                Grade list <span className="field-hint">optional</span>
+                {t('serviceForm.gradeList')}{' '}
+                <span className="field-hint">{t('common.optional')}</span>
               </span>
               <select
                 value={fluidGradeList}
                 onChange={(event) => setFluidGradeList(event.target.value)}
                 disabled={saving}
               >
-                <option value="">No grade list</option>
+                <option value="">{t('serviceForm.noGradeList')}</option>
                 {listKeys.map((key) => (
                   <option key={key} value={key}>
                     {key}
@@ -269,10 +276,7 @@ export default function AddServiceDialog({
                 ))}
               </select>
             </label>
-            <p className="field-note">
-              Job lines for this service will ask for brand and quantity, plus a
-              type or grade wherever a list is chosen.
-            </p>
+            <p className="field-note">{t('serviceForm.fluidNote')}</p>
           </>
         )}
 
@@ -283,7 +287,7 @@ export default function AddServiceDialog({
         )}
 
         <button type="submit" className="btn btn--dark btn--full" disabled={saving}>
-          {saving ? 'Saving…' : 'Save service'}
+          {saving ? t('action.saving') : t('serviceForm.save')}
         </button>
       </form>
     </Dialog>

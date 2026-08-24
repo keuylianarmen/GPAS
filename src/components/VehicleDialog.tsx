@@ -4,6 +4,7 @@ import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import { ODOMETER_WARNINGS, useOdometerCheck } from '../lib/odometer'
 import Dialog from './Dialog'
+import { t } from '../lib/i18n'
 import VehicleFields from './VehicleFields'
 import {
   draftFromVehicle,
@@ -60,7 +61,7 @@ export default function VehicleDialog({
         .single()
 
       if (updateError || !data) {
-        setError(updateError?.message ?? 'The vehicle could not be saved.')
+        setError(updateError?.message ?? t('vehicleForm.saveFailed'))
         setSaving(false)
         return
       }
@@ -69,7 +70,7 @@ export default function VehicleDialog({
     }
 
     if (isBlankVehicle(draft)) {
-      setError('Fill in at least one field.')
+      setError(t('vehicleForm.needSomething'))
       return
     }
 
@@ -87,7 +88,7 @@ export default function VehicleDialog({
       .single()
 
     if (insertError || !data) {
-      setError(insertError?.message ?? 'The vehicle could not be saved.')
+      setError(insertError?.message ?? t('vehicleForm.saveFailed'))
       setSaving(false)
       return
     }
@@ -96,7 +97,7 @@ export default function VehicleDialog({
 
   return (
     <Dialog
-      title={editing ? 'Edit vehicle' : 'New vehicle'}
+      title={editing ? t('vehicleForm.editTitle') : t('vehicleForm.newTitle')}
       onClose={onClose}
       busy={saving}
     >
@@ -107,7 +108,9 @@ export default function VehicleDialog({
           disabled={saving}
           odometerNote={
             odometerWarning && (
-              <p className="field-warning">{ODOMETER_WARNINGS[odometerWarning]}</p>
+              <p className="field-warning">
+                {t(ODOMETER_WARNINGS[odometerWarning])}
+              </p>
             )
           }
         />
@@ -117,7 +120,11 @@ export default function VehicleDialog({
           </p>
         )}
         <button type="submit" className="btn btn--dark btn--full" disabled={saving}>
-          {saving ? 'Saving…' : editing ? 'Save changes' : 'Save vehicle'}
+          {saving
+            ? t('action.saving')
+            : editing
+              ? t('action.saveChanges')
+              : t('vehicleForm.save')}
         </button>
       </form>
     </Dialog>

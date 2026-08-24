@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Database } from './types/database'
 import { supabase } from './lib/supabase'
 import { km } from './lib/format'
@@ -7,18 +7,44 @@ import { customerLabel } from './lib/customer'
 import { vehicleLabel } from './lib/vehicle'
 import { parseOptionalPositiveInteger } from './lib/parse'
 import { logReminderSend, setReminderDue } from './lib/reminders'
+import Collapsible from './components/Collapsible'
+import { t, tn } from './lib/i18n'
+import type { StringKey } from './lib/i18n'
 
 type LiveReminder = Database['public']['Views']['v_reminders_live']['Row']
+type DismissedReminder = Database['public']['Views']['v_reminders_dismissed']['Row']
+
+/** Both views carry the same due information; only the live one is bucketed. */
+type DueFields = {
+  triggered_by?: string | null
+  due_date: string | null
+  due_odometer: number | null
+  current_odometer: number | null
+}
+
+/** A misclick is the common case, so the row lingers before it goes. */
+const UNDO_WINDOW_MS = 6000
 
 /** Rows rendered in the lookahead before it is truncated; the count is exact. */
 const UPCOMING_SHOWN = 100
 
 type Bucket = 'overdue' | 'this-week' | 'next-week'
 
-const BUCKET_LABELS: Record<Bucket, string> = {
-  overdue: 'Overdue',
-  'this-week': 'This week',
-  'next-week': 'Next week',
+/** The three due buckets, plus the lookahead and the dismissed list. */
+type Filter = 'overdue' | 'this-week' | 'next-week' | 'later' | 'dismissed'
+
+const FILTER_LABELS: Record<Filter, StringKey> = {
+  overdue: 'reminders.overdue',
+  'this-week': 'reminders.thisWeek',
+  'next-week': 'reminders.nextWeek',
+  later: 'reminders.later',
+  dismissed: 'reminders.dismissed',
+}
+
+const BUCKET_LABELS: Record<Bucket, StringKey> = {
+  overdue: 'reminders.overdue',
+  'this-week': 'reminders.thisWeek',
+  'next-week': 'reminders.nextWeek',
 }
 
 /**
@@ -42,15 +68,19 @@ function bucketOf(row: LiveReminder, today: string): Bucket {
 }
 
 /** Odometer-driven reminders read better as a reading than as a date. */
-function dueText(row: LiveReminder): string {
+function dueText(row: DueFields): string {
   if (row.due_odometer !== null && row.triggered_by === 'odometer') {
-    const now =
-      row.current_odometer === null ? '' : `, now at ${km(row.current_odometer)}`
-    return `Due at ${km(row.due_odometer)} km${now}`
+    return row.current_odometer === null
+      ? t('reminders.dueAt', { km: km(row.due_odometer) })
+      : t('reminders.dueAtNow', {
+          km: km(row.due_odometer),
+          current: km(row.current_odometer),
+        })
   }
-  if (row.due_date !== null) return `Due ${row.due_date}`
-  if (row.due_odometer !== null) return `Due at ${km(row.due_odometer)} km`
-  return 'No due point set'
+  if (row.due_date !== null) return t('reminders.dueOn', { date: row.due_date })
+  if (row.due_odometer !== null)
+    return t('reminders.dueAt', { km: km(row.due_odometer) })
+  return t('reminders.noDuePoint')
 }
 
 function compareDue(a: LiveReminder, b: LiveReminder): number {
@@ -59,6 +89,13 @@ function compareDue(a: LiveReminder, b: LiveReminder): number {
 
 export default function Reminders() {
   const [rows, setRows] = useState<LiveReminder[]>([])
+  const [dismissed, setDismissed] = useState<DismissedReminder[]>([])
+  const [showDismissed, setShowDismissed] = useState(false)
+  // Empty means "All"; several at once is the point — overdue plus this week
+  // is the daily working set.
+  const [filters, setFilters] = useState<Set<Filter>>(new Set())
+  const [justDismissed, setJustDismissed] = useState<Set<string>>(new Set())
+  const undoTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
@@ -71,22 +108,40 @@ export default function Reminders() {
   useEffect(() => {
     let cancelled = false
 
-    // One view holds every pending, non-muted reminder, already split into
-    // due and upcoming.
-    supabase
-      .from('v_reminders_live')
-      .select('*')
-      .then(({ data, error: loadError }) => {
-        if (cancelled) return
-        if (loadError) setError(loadError.message)
-        else setRows(data ?? [])
-        setLoading(false)
-      })
+    async function load() {
+      // One view holds every pending, non-muted reminder, already split into
+      // due and upcoming. The other holds hand-cancelled ones with no live
+      // replacement — superseded reminders are excluded by the view.
+      const [liveResult, dismissedResult] = await Promise.all([
+        supabase.from('v_reminders_live').select('*'),
+        supabase.from('v_reminders_dismissed').select('*'),
+      ])
+
+      if (cancelled) return
+
+      const failure = liveResult.error ?? dismissedResult.error
+      if (failure) setError(failure.message)
+      else {
+        setRows(liveResult.data ?? [])
+        setDismissed(dismissedResult.data ?? [])
+      }
+      setLoading(false)
+    }
+
+    load()
 
     return () => {
       cancelled = true
     }
   }, [reloadToken])
+
+  useEffect(() => {
+    const timers = undoTimers.current
+    return () => {
+      for (const timer of timers.values()) clearTimeout(timer)
+      timers.clear()
+    }
+  }, [])
 
   const grouped = useMemo(() => {
     const groups: Record<Bucket, LiveReminder[]> = {
@@ -134,7 +189,12 @@ export default function Reminders() {
     setReloadToken((token) => token + 1)
   }
 
-  /** Dismissing is a status change, not a contact attempt. */
+  /**
+   * Dismissing is a status change, not a contact attempt. The write happens
+   * straight away — closing the tab must not silently undo it — but the row
+   * stays put briefly so a misclick can be taken back without hunting through
+   * the dismissed section.
+   */
   async function dismiss(id: string) {
     setWorking(id)
     const { error: updateError } = await supabase
@@ -147,7 +207,49 @@ export default function Reminders() {
       setError(updateError.message)
       return
     }
-    setRows((current) => current.filter((row) => row.id !== id))
+
+    setJustDismissed((current) => new Set(current).add(id))
+
+    undoTimers.current.set(
+      id,
+      setTimeout(() => {
+        undoTimers.current.delete(id)
+        setJustDismissed((current) => {
+          const next = new Set(current)
+          next.delete(id)
+          return next
+        })
+        // Reload rather than splice: the row now belongs to the other list.
+        setReloadToken((token) => token + 1)
+      }, UNDO_WINDOW_MS),
+    )
+  }
+
+  async function restore(id: string) {
+    const timer = undoTimers.current.get(id)
+    if (timer !== undefined) {
+      clearTimeout(timer)
+      undoTimers.current.delete(id)
+    }
+
+    setWorking(id)
+    const { error: updateError } = await supabase
+      .from('reminders')
+      .update({ status: 'pending' })
+      .eq('id', id)
+    setWorking(null)
+
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+
+    setJustDismissed((current) => {
+      const next = new Set(current)
+      next.delete(id)
+      return next
+    })
+    setReloadToken((token) => token + 1)
   }
 
   /**
@@ -157,11 +259,11 @@ export default function Reminders() {
   async function saveDue(id: string, dueKm: string, dueDate: string) {
     const parsedKm = parseOptionalPositiveInteger(dueKm)
     if (parsedKm === 'invalid') {
-      setError('Distance must be a whole number above zero, or left blank.')
+      setError(t('reminders.badDistance'))
       return
     }
     if (parsedKm === null && !dueDate) {
-      setError('Give the reminder a distance, a date, or both.')
+      setError(t('reminders.needDuePoint'))
       return
     }
 
@@ -183,9 +285,43 @@ export default function Reminders() {
     setReloadToken((token) => token + 1)
   }
 
-  if (loading) return <p className="muted">Loading reminders…</p>
+  if (loading) return <p className="muted">{t('reminders.loading')}</p>
 
-  const dueCount = Object.values(grouped).reduce((sum, list) => sum + list.length, 0)
+  const counts: Record<Filter, number> = {
+    overdue: grouped.overdue.length,
+    'this-week': grouped['this-week'].length,
+    'next-week': grouped['next-week'].length,
+    later: upcoming.length,
+    dismissed: dismissed.length,
+  }
+  const totalCount = Object.values(counts).reduce((sum, value) => sum + value, 0)
+
+  const showingAll = filters.size === 0
+  const shows = (filter: Filter) => showingAll || filters.has(filter)
+
+  const visibleDueCount =
+    (shows('overdue') ? counts.overdue : 0) +
+    (shows('this-week') ? counts['this-week'] : 0) +
+    (shows('next-week') ? counts['next-week'] : 0)
+  const anyDueSectionShown =
+    shows('overdue') || shows('this-week') || shows('next-week')
+
+  function toggleFilter(filter: Filter) {
+    setFilters((current) => {
+      const next = new Set(current)
+      if (next.has(filter)) next.delete(filter)
+      else next.add(filter)
+
+      // Dismissed opens when it is the only thing being looked at.
+      if (next.size === 1 && next.has('dismissed')) setShowDismissed(true)
+      return next
+    })
+  }
+
+  function selectAll() {
+    setFilters(new Set())
+    setShowDismissed(false)
+  }
 
   return (
     <>
@@ -201,29 +337,59 @@ export default function Reminders() {
               setReloadToken((token) => token + 1)
             }}
           >
-            Try again
+            {t('action.tryAgain')}
           </button>
         </div>
       )}
 
-      <div className="section-label">
-        <span>Due now</span>
-        <span className="muted">
-          <span className="num">{dueCount}</span>{' '}
-          {dueCount === 1 ? 'reminder' : 'reminders'}
-        </span>
+      {/* Counts are worth seeing even when nobody filters, so they are always
+          rendered — zero included. */}
+      <div className="filter-bar">
+        <div className="chips" role="group" aria-label={t('reminders.filterLabel')}>
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={showingAll}
+            onClick={selectAll}
+          >
+            {t('reminders.all')} <span className="num">{totalCount}</span>
+          </button>
+          {(Object.keys(FILTER_LABELS) as Filter[]).map((filter) => (
+            <button
+              type="button"
+              key={filter}
+              className="chip"
+              aria-pressed={filters.has(filter)}
+              onClick={() => toggleFilter(filter)}
+            >
+              {t(FILTER_LABELS[filter])}{' '}
+              <span className="num">{counts[filter]}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {dueCount === 0 && <p className="empty">Nothing due right now.</p>}
+      {anyDueSectionShown && (
+        <div className="section-label">
+          <span>{t('reminders.dueNow')}</span>
+          <span className="muted">
+            {tn(visibleDueCount, 'reminders.dueCountOne', 'reminders.dueCountOther')}
+          </span>
+        </div>
+      )}
+
+      {anyDueSectionShown && visibleDueCount === 0 && (
+        <p className="empty">{t('reminders.nothingDue')}</p>
+      )}
 
       {(Object.keys(BUCKET_LABELS) as Bucket[]).map((bucket) => {
         const list = grouped[bucket]
-        if (list.length === 0) return null
+        if (list.length === 0 || !shows(bucket)) return null
 
         return (
           <section className="reminder-group" key={bucket}>
             <h2 className={`reminder-group-head reminder-group-head--${bucket}`}>
-              {BUCKET_LABELS[bucket]}
+              {t(BUCKET_LABELS[bucket])}
               <span className="num">{list.length}</span>
             </h2>
 
@@ -232,6 +398,8 @@ export default function Reminders() {
                 key={row.id}
                 row={row}
                 busy={working === row.id}
+                dismissed={row.id !== null && justDismissed.has(row.id)}
+                onUndo={() => row.id && restore(row.id)}
                 editing={editingId === row.id}
                 onEdit={() => setEditingId(row.id ?? null)}
                 onCancelEdit={() => setEditingId(null)}
@@ -250,15 +418,18 @@ export default function Reminders() {
         )
       })}
 
+      {shows('later') && (
       <div className="section-label reminder-later-head">
-        <span>Reminders further out</span>
+        <span>{t('reminders.furtherOut')}</span>
         <span className="muted">
-          <span className="num">{upcoming.length}</span> pending
+          <span className="num">{upcoming.length}</span>{' '}
+          {t('reminders.pending')}
         </span>
       </div>
+      )}
 
-      {upcoming.length === 0 ? (
-        <p className="empty">Nothing else pending.</p>
+      {shows('later') && (upcoming.length === 0 ? (
+        <p className="empty">{t('reminders.nothingElse')}</p>
       ) : (
         upcoming.slice(0, UPCOMING_SHOWN).map((row) => (
           <ReminderCard
@@ -272,12 +443,75 @@ export default function Reminders() {
             onSaveDue={(dueKm, dueDate) => row.id && saveDue(row.id, dueKm, dueDate)}
           />
         ))
+      ))}
+
+      {shows('later') && upcoming.length > UPCOMING_SHOWN && (
+        <p className="field-note">
+          {t('reminders.showingFirst', {
+            shown: UPCOMING_SHOWN,
+            total: upcoming.length,
+          })}
+        </p>
       )}
 
-      {upcoming.length > UPCOMING_SHOWN && (
+      {shows('dismissed') && (
+      <div className="section-label reminder-later-head">
+        <button
+          type="button"
+          className="disclosure"
+          aria-expanded={showDismissed}
+          onClick={() => setShowDismissed((open) => !open)}
+        >
+          <span className="disclosure-mark">{showDismissed ? '−' : '+'}</span>
+          {t('reminders.dismissed')}
+          <span className="muted num">{dismissed.length}</span>
+        </button>
+      </div>
+      )}
+
+      {shows('dismissed') && (
+      <Collapsible open={showDismissed}>
         <p className="field-note">
-          Showing the first {UPCOMING_SHOWN} of {upcoming.length}.
+          {t('reminders.dismissedNote')}
         </p>
+
+        {dismissed.length === 0 ? (
+          <p className="empty">{t('reminders.nothingDismissed')}</p>
+        ) : (
+          dismissed.map((row) => (
+            <div className="card reminder reminder--later" key={row.id}>
+              <div className="reminder-main">
+                <div className="reminder-service">
+                  {row.service_en ?? t('reminders.unknownService')}
+                </div>
+                <div className="reminder-who">
+                  <span dir="auto">{customerLabel(row)}</span>
+                  {' · '}
+                  <span className="num">{vehicleLabel(row)}</span>
+                  {row.phone ? (
+                    <>
+                      {' · '}
+                      <span className="num">{row.phone}</span>
+                    </>
+                  ) : null}
+                </div>
+                <div className="reminder-due num">{dueText(row)}</div>
+              </div>
+
+              <div className="reminder-actions">
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--small"
+                  disabled={working === row.id}
+                  onClick={() => row.id && restore(row.id)}
+                >
+                  {t('reminders.restore')}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </Collapsible>
       )}
     </>
   )
@@ -287,6 +521,8 @@ function ReminderCard({
   row,
   busy,
   editing,
+  dismissed = false,
+  onUndo,
   failing = false,
   later = false,
   onEdit,
@@ -301,6 +537,9 @@ function ReminderCard({
   row: LiveReminder
   busy: boolean
   editing: boolean
+  /** Cancelled, but still on screen for the length of the undo window. */
+  dismissed?: boolean
+  onUndo?: () => void
   failing?: boolean
   /** Lookahead rows can have their due point adjusted but not be contacted yet. */
   later?: boolean
@@ -319,10 +558,14 @@ function ReminderCard({
   const [dueDate, setDueDate] = useState(row.due_date ?? '')
   const [reason, setReason] = useState('')
 
+  const className = ['card', 'reminder']
+  if (later) className.push('reminder--later')
+  if (dismissed) className.push('reminder--dismissed')
+
   return (
-    <div className={later ? 'card reminder reminder--later' : 'card reminder'}>
+    <div className={className.join(' ')}>
       <div className="reminder-main">
-        <div className="reminder-service">{row.service_en ?? 'Unknown service'}</div>
+        <div className="reminder-service">{row.service_en ?? t('reminders.unknownService')}</div>
         <div className="reminder-who">
           <span dir="auto">{customerLabel(row)}</span>
           {' · '}
@@ -340,7 +583,8 @@ function ReminderCard({
             <div className="grid-2">
               <label className="field">
                 <span>
-                  Due at <span className="field-hint">km</span>
+                  {t('reminders.dueAtLabel')}{' '}
+                  <span className="field-hint">{t('common.km')}</span>
                 </span>
                 <input
                   className="num"
@@ -351,7 +595,7 @@ function ReminderCard({
                 />
               </label>
               <label className="field">
-                <span>Due by</span>
+                <span>{t('reminders.dueByLabel')}</span>
                 <input
                   className="num"
                   type="date"
@@ -362,7 +606,7 @@ function ReminderCard({
               </label>
             </div>
             <p className="field-note">
-              Saving updates the job line this reminder came from.
+              {t('reminders.dueEditNote')}
             </p>
             <div className="confirm-row">
               <button
@@ -371,7 +615,7 @@ function ReminderCard({
                 disabled={busy}
                 onClick={() => onSaveDue(dueKm, dueDate)}
               >
-                {busy ? 'Saving…' : 'Save due point'}
+                {busy ? t('action.saving') : t('reminders.saveDue')}
               </button>
               <button
                 type="button"
@@ -379,7 +623,7 @@ function ReminderCard({
                 disabled={busy}
                 onClick={onCancelEdit}
               >
-                Cancel
+                {t('action.cancel')}
               </button>
             </div>
           </div>
@@ -391,18 +635,19 @@ function ReminderCard({
           <div className="reminder-edit">
             <label className="field">
               <span>
-                What happened <span className="field-hint">optional</span>
+                {t('reminders.whatHappened')}{' '}
+                <span className="field-hint">{t('common.optional')}</span>
               </span>
               <input
                 dir="auto"
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
-                placeholder="No answer"
+                placeholder={t('reminders.whatHappenedPlaceholder')}
                 disabled={busy}
               />
             </label>
             <p className="field-note">
-              The reminder stays pending, so it can be tried again.
+              {t('reminders.failNote')}
             </p>
             <div className="confirm-row">
               <button
@@ -411,7 +656,7 @@ function ReminderCard({
                 disabled={busy}
                 onClick={() => onFailed(reason.trim())}
               >
-                {busy ? 'Saving…' : 'Log the attempt'}
+                {busy ? t('action.saving') : t('reminders.logAttempt')}
               </button>
               <button
                 type="button"
@@ -419,7 +664,7 @@ function ReminderCard({
                 disabled={busy}
                 onClick={onCancelFail}
               >
-                Cancel
+                {t('action.cancel')}
               </button>
             </div>
           </div>
@@ -427,13 +672,26 @@ function ReminderCard({
 
         {row.whatsapp_opt_in === false && (
           <p className="reminder-flag">
-            No WhatsApp opt-in, so this cannot go out by message. Phone them, then
-            mark it sent.
+            {t('reminders.cannotMessage')}
           </p>
         )}
       </div>
 
-      {!editing && !failing && (
+      {dismissed && onUndo && (
+        <div className="reminder-actions">
+          <span className="muted">{t('reminders.dismissedState')}</span>
+          <button
+            type="button"
+            className="btn btn--ghost btn--small"
+            disabled={busy}
+            onClick={onUndo}
+          >
+            {t('reminders.undo')}
+          </button>
+        </div>
+      )}
+
+      {!editing && !failing && !dismissed && (
         <div className="reminder-actions">
           {onSent && (
             <button
@@ -442,7 +700,7 @@ function ReminderCard({
               disabled={busy}
               onClick={onSent}
             >
-              Mark sent
+              {t('reminders.markSent')}
             </button>
           )}
           {onStartFail && (
@@ -452,7 +710,7 @@ function ReminderCard({
               disabled={busy}
               onClick={onStartFail}
             >
-              Couldn&rsquo;t reach
+              {t('reminders.couldntReach')}
             </button>
           )}
           <button
@@ -461,7 +719,7 @@ function ReminderCard({
             disabled={busy}
             onClick={onEdit}
           >
-            Edit due
+            {t('reminders.editDue')}
           </button>
           {onDismiss && (
             <button
@@ -470,7 +728,7 @@ function ReminderCard({
               disabled={busy}
               onClick={onDismiss}
             >
-              Dismiss
+              {t('reminders.dismiss')}
             </button>
           )}
         </div>

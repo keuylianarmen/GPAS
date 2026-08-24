@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { parseOptionalInteger } from './parse'
+import type { StringKey } from './i18n'
 
 export type OdometerWarning = 'lower' | 'jump'
 
-export const ODOMETER_WARNINGS: Record<OdometerWarning, string> = {
-  lower:
-    'Lower than the reading on file. Legitimate after a cluster replacement, but usually a typo.',
-  jump: 'More than 100,000 km above the reading on file. Usually one digit too many.',
+export const ODOMETER_WARNINGS: Record<OdometerWarning, StringKey> = {
+  lower: 'odometer.lower',
+  jump: 'odometer.jump',
 }
 
 export async function checkOdometer(

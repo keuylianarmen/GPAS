@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { invalidateLookup } from '../lib/useLookup'
 import Dialog from './Dialog'
+import { t } from '../lib/i18n'
 
 /** lookup_values.value is the list's own key; the display name is what vehicles store. */
 function keyFor(label: string): string {
@@ -27,13 +28,13 @@ export default function AddMakeDialog({
   async function save() {
     const trimmed = label.trim()
     if (!trimmed) {
-      setError('Enter the make.')
+      setError(t('make.needName'))
       return
     }
 
     const key = keyFor(trimmed)
     if (!key) {
-      setError('Use Latin letters or digits for the make.')
+      setError(t('make.needLatin'))
       return
     }
 
@@ -59,9 +60,9 @@ export default function AddMakeDialog({
   // No <form>: this dialog opens from inside the customer form, and a nested
   // form would be invalid. Enter is wired up by hand instead.
   return (
-    <Dialog title="New make" onClose={onClose} busy={saving}>
+    <Dialog title={t('make.title')} onClose={onClose} busy={saving}>
       <label className="field">
-        <span>Make</span>
+        <span>{t('make.label')}</span>
         <input
           value={label}
           onChange={(event) => setLabel(event.target.value)}
@@ -71,15 +72,13 @@ export default function AddMakeDialog({
               if (!saving) save()
             }
           }}
-          placeholder="Land Rover"
+          placeholder={t('make.placeholder')}
           disabled={saving}
           autoFocus
         />
       </label>
 
-      <p className="field-note">
-        Added to the shared list, so it is available everywhere afterwards.
-      </p>
+      <p className="field-note">{t('make.note')}</p>
 
       {error && (
         <p className="error" role="alert">
@@ -93,7 +92,7 @@ export default function AddMakeDialog({
         onClick={save}
         disabled={saving}
       >
-        {saving ? 'Saving…' : 'Save make'}
+        {saving ? t('make.saving') : t('make.save')}
       </button>
     </Dialog>
   )

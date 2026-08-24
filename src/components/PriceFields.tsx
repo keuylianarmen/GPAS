@@ -1,5 +1,6 @@
 import { money } from '../lib/format'
 import { sumPrices } from '../lib/parse'
+import { t } from '../lib/i18n'
 
 /**
  * Parts, labour and sub sit on one compact row with the line total beside
@@ -20,9 +21,9 @@ export default function PriceFields({
   disabled?: boolean
 }) {
   const fields = [
-    { key: 'partPrice', label: 'Parts', value: partPrice },
-    { key: 'laborPrice', label: 'Labour', value: laborPrice },
-    { key: 'subPrice', label: 'Sub', value: subPrice },
+    { key: 'partPrice', label: t('price.parts'), value: partPrice },
+    { key: 'laborPrice', label: t('price.labour'), value: laborPrice },
+    { key: 'subPrice', label: t('price.sub'), value: subPrice },
   ] as const
 
   return (
@@ -42,7 +43,7 @@ export default function PriceFields({
       ))}
 
       <div className="price price--total">
-        <span>Line total</span>
+        <span>{t('price.lineTotal')}</span>
         <div className="num">{money(sumPrices(partPrice, laborPrice, subPrice))}</div>
       </div>
     </div>

@@ -4,15 +4,23 @@ import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
 import { todayIso } from './lib/date'
 import { dueDefaults } from './lib/due'
-import { emptyFluidDraft, fluidDetails, hasFluidValues, usesFluid } from './lib/fluid'
+import { emptyFluidDraft, usesFluid } from './lib/fluid'
+import { lineDetails } from './lib/lineDetails'
 import type { FluidDraft } from './lib/fluid'
+import { emptyTireDraft, tracksTires } from './lib/tire'
+import type { TireDraft } from './lib/tire'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
-import { jobVehicleLabel } from './lib/vehicle'
+import { jobVehicleLabel, vehicleLabel } from './lib/vehicle'
 import { parseOptionalInteger, priceValue, sumPrices } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
+import Collapsible from './components/Collapsible'
+import ServicePicker from './components/ServicePicker'
+import { t } from './lib/i18n'
+import type { StringKey } from './lib/i18n'
 import Dialog from './components/Dialog'
 import PriceFields from './components/PriceFields'
 import FluidFields from './components/FluidFields'
+import TireFields from './components/TireFields'
 import OdometerHint from './components/OdometerHint'
 import type { OdometerReference } from './components/OdometerHint'
 import AddCustomerDialog from './components/AddCustomerDialog'
@@ -41,13 +49,35 @@ type Line = {
   nextDueKm: string
   nextDueDate: string
   fluid: FluidDraft
+  tire: TireDraft
 }
 
-const STEPS = ['Customer', 'Vehicle', 'Services', 'Payment'] as const
+const STEPS: StringKey[] = [
+  'newJob.stepCustomer',
+  'newJob.stepVehicle',
+  'newJob.stepServices',
+  'newJob.stepPayment',
+]
+
+/**
+ * The vehicle this job is most likely for: the only one, else the one from the
+ * customer's most recent job, else the most recently added. `rows` arrives
+ * oldest first.
+ */
+function defaultVehicle(rows: Vehicle[], lastJobVehicleId: string | null): Vehicle | null {
+  if (rows.length === 0) return null
+  if (rows.length === 1) return rows[0]
+
+  const fromLastJob = lastJobVehicleId
+    ? rows.find((row) => row.id === lastJobVehicleId)
+    : undefined
+
+  return fromLastJob ?? rows[rows.length - 1]
+}
 
 function describeVehicle(vehicle: Vehicle): string {
   const spec = [vehicle.make, vehicle.model, vehicle.year].filter(Boolean).join(' ')
-  return spec || 'No details recorded'
+  return spec || t('newJob.noVehicleDetails')
 }
 
 export default function NewJob() {
@@ -63,6 +93,7 @@ export default function NewJob() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [customerQuery, setCustomerQuery] = useState('')
   const [addingCustomer, setAddingCustomer] = useState(false)
+  const [pickingCustomer, setPickingCustomer] = useState(true)
 
   // Tagged with the customer it belongs to, so a stale list is never shown
   // while a different customer's vehicles are still loading.
@@ -71,15 +102,22 @@ export default function NewJob() {
     rows: Vehicle[]
   } | null>(null)
   const [vehicleId, setVehicleId] = useState<string | null>(null)
+  // Distinguishes "not chosen yet" from the deliberate choice of no vehicle,
+  // since both leave vehicleId null.
+  const [vehicleChosen, setVehicleChosen] = useState(false)
+  const [pickingVehicle, setPickingVehicle] = useState(false)
   const [odometer, setOdometer] = useState('')
   const [addingVehicle, setAddingVehicle] = useState(false)
 
   const [lines, setLines] = useState<Line[]>([])
   const [addingService, setAddingService] = useState(false)
+  const [pickingService, setPickingService] = useState<number | 'new' | null>(null)
   const nextLineKey = useRef(1)
 
   const [paymentMethod, setPaymentMethod] = useState('')
 
+  const continueRef = useRef<HTMLButtonElement>(null)
+  const servicePickerOpened = useRef(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedJob, setSavedJob] = useState<Job | null>(null)
@@ -142,16 +180,41 @@ export default function NewJob() {
     let cancelled = false
     const customerId = customer.id
 
-    supabase
-      .from('vehicles')
-      .select('*')
-      .eq('customer_id', customerId)
-      .order('created_at')
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) setSaveError(error.message)
-        setVehicleLoad({ customerId, rows: data ?? [] })
-      })
+    async function load() {
+      const [vehicleResult, lastJobResult] = await Promise.all([
+        supabase.from('vehicles').select('*').eq('customer_id', customerId).order('created_at'),
+        // Only to seed the default choice, so one row is enough.
+        supabase
+          .from('jobs')
+          .select('vehicle_id')
+          .eq('customer_id', customerId)
+          .not('vehicle_id', 'is', null)
+          .order('start_date', { ascending: false })
+          .order('job_no', { ascending: false })
+          .limit(1),
+      ])
+
+      if (cancelled) return
+
+      const failure = vehicleResult.error ?? lastJobResult.error
+      if (failure) setSaveError(failure.message)
+
+      const rows = vehicleResult.data ?? []
+      setVehicleLoad({ customerId, rows })
+
+      const preselected = defaultVehicle(
+        rows,
+        lastJobResult.data?.[0]?.vehicle_id ?? null,
+      )
+      setVehicleId(preselected?.id ?? null)
+      setVehicleChosen(preselected !== null)
+      setPickingVehicle(false)
+      setOdometer(
+        preselected?.current_odometer == null ? '' : String(preselected.current_odometer),
+      )
+    }
+
+    load()
 
     return () => {
       cancelled = true
@@ -210,8 +273,9 @@ export default function NewJob() {
       laborPrice:
         service?.default_labor_price == null ? '' : String(service.default_labor_price),
       subPrice: '',
-      // A different service means a different fluid, so start clean.
+      // A different service means different consumables, so start clean.
       fluid: emptyFluidDraft(),
+      tire: emptyTireDraft(),
       ...dueDefaults(service, jobOdometer, todayIso()),
     }
   }
@@ -226,6 +290,7 @@ export default function NewJob() {
       nextDueKm: '',
       nextDueDate: '',
       fluid: emptyFluidDraft(),
+      tire: emptyTireDraft(),
     }
     setLines((current) => [...current, serviceId ? applyService(base, serviceId) : base])
   }
@@ -236,12 +301,52 @@ export default function NewJob() {
     )
   }
 
+  const selectedVehicle = vehicles.find((row) => row.id === vehicleId) ?? null
+
+  function chooseCustomer(next: Customer) {
+    setCustomer(next)
+    setPickingCustomer(false)
+    setVehicleId(null)
+    setVehicleChosen(false)
+    setOdometer('')
+    // One Tab and Enter from here, rather than scrolling past the list.
+    continueRef.current?.focus()
+  }
+
+  function chooseVehicle(vehicle: Vehicle | null) {
+    setVehicleId(vehicle?.id ?? null)
+    setVehicleChosen(true)
+    setPickingVehicle(false)
+    setOdometer(
+      vehicle?.current_odometer == null ? '' : String(vehicle.current_odometer),
+    )
+    continueRef.current?.focus()
+  }
+
+  /**
+   * Arriving at the services step with nothing on the job opens a line
+   * straight away — the empty state plus an Add line button is a wasted click
+   * when adding a line is certain. Only once: if the user clears every line,
+   * reopening on each removal would fight them.
+   */
+  function goToStep(next: number) {
+    setStep(next)
+    if (next === 2 && lines.length === 0 && !servicePickerOpened.current) {
+      servicePickerOpened.current = true
+      setPickingService('new')
+    }
+  }
+
   function resetForNextJob() {
     setStep(0)
+    servicePickerOpened.current = false
     setCustomer(null)
     setCustomerQuery('')
+    setPickingCustomer(true)
     setVehicleLoad(null)
     setVehicleId(null)
+    setVehicleChosen(false)
+    setPickingVehicle(false)
     setOdometer('')
     setLines([])
     setPaymentMethod('')
@@ -255,7 +360,7 @@ export default function NewJob() {
 
     const parsedOdometer = parseOptionalInteger(odometer)
     if (parsedOdometer === 'invalid') {
-      setSaveError('Odometer must be a whole number, or left blank.')
+      setSaveError(t('newJob.badOdometer'))
       return
     }
 
@@ -277,7 +382,7 @@ export default function NewJob() {
         .single()
 
       if (error || !data) {
-        setSaveError(error?.message ?? 'The job could not be saved.')
+        setSaveError(error?.message ?? t('newJob.jobSaveFailed'))
         setSaving(false)
         return
       }
@@ -291,10 +396,9 @@ export default function NewJob() {
       const { error } = await supabase.from('job_items').insert(
         filledLines.map((line) => {
           const dueKm = parseOptionalInteger(line.nextDueKm)
-          const details = fluidDetails(line.fluid)
           return {
             job_id: job.id,
-            ...(hasFluidValues(details) ? { details } : {}),
+            details: lineDetails({}, line.fluid, line.tire),
             service_id: line.serviceId,
             part_price: priceValue(line.partPrice),
             labor_price: priceValue(line.laborPrice),
@@ -308,7 +412,10 @@ export default function NewJob() {
 
       if (error) {
         setSaveError(
-          `Job #${job.job_no} was created, but its lines could not be saved: ${error.message}. Submit again to retry the lines.`,
+          t('newJob.linesFailed', {
+            number: job.job_no,
+            reason: error.message,
+          }),
         )
         setSaving(false)
         return
@@ -331,7 +438,7 @@ export default function NewJob() {
   if (loadError) {
     return (
       <div className="card notice">
-        <p>Could not load what this screen needs.</p>
+        <p>{t('newJob.loadFailed')}</p>
         <p className="muted">{loadError}</p>
       </div>
     )
@@ -341,17 +448,22 @@ export default function NewJob() {
     return (
       <div className="card notice notice--done">
         <p>
-          Job <span className="num">#{savedJob.job_no}</span> saved for{' '}
-          <span dir="auto">{customer ? customerLabel(customer) : 'this customer'}</span>.
+          <span dir="auto">
+            {t('newJob.savedFor', {
+              number: savedJob.job_no,
+              customer: customer
+                ? customerLabel(customer)
+                : t('newJob.thisCustomer'),
+            })}
+          </span>
         </p>
         {savedTotal !== null && (
           <p className="muted">
-            Total <span className="num">{money(savedTotal)}</span> — from the job
-            totals view.
+            {t('newJob.savedTotal', { amount: money(savedTotal) })}
           </p>
         )}
         <button type="button" className="btn btn--dark btn--small" onClick={resetForNextJob}>
-          Start another job
+          {t('newJob.startAnother')}
         </button>
       </div>
     )
@@ -359,142 +471,177 @@ export default function NewJob() {
 
   return (
     <>
-      <nav className="stepper" aria-label="Job steps">
-        {STEPS.map((label, index) => (
+      <nav className="stepper" aria-label={t('newJob.steps')}>
+        {STEPS.map((labelKey, index) => (
           <button
-            key={label}
+            key={labelKey}
             type="button"
             className="stepper-step"
             aria-current={step === index ? 'step' : undefined}
             data-state={step === index ? 'current' : index < step ? 'done' : 'ahead'}
             disabled={index > 0 && !customer}
-            onClick={() => setStep(index)}
+            onClick={() => goToStep(index)}
           >
             <span className="stepper-index num">{index + 1}</span>
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </nav>
 
       {step === 0 && (
         <section className="step-panel">
-          <div className="toolbar">
-            <div className="toolbar-search">
-              <input
-                className="input"
-                type="search"
-                value={customerQuery}
-                onChange={(event) => setCustomerQuery(event.target.value)}
-                placeholder="Search by name or phone"
-                aria-label="Search customers"
-              />
-            </div>
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={() => setAddingCustomer(true)}
-            >
-              New customer
-            </button>
-          </div>
-
-          {visibleCustomers.length === 0 ? (
-            <p className="empty">
-              {customers.length === 0
-                ? 'No customers yet.'
-                : `No customer matches “${customerQuery.trim()}”.`}
-            </p>
-          ) : (
-            <div className="picker">
-              {visibleCustomers.map((row) => (
-                <button
-                  type="button"
-                  key={row.id}
-                  className="picker-row"
-                  aria-pressed={customer?.id === row.id}
-                  onClick={() => {
-                    setCustomer(row)
-                    setVehicleId(null)
-                    setOdometer('')
-                  }}
-                >
-                  <span dir="auto">{customerLabel(row)}</span>
-                  <span className="muted num">{row.phone || 'No phone'}</span>
-                </button>
-              ))}
+          {customer && !pickingCustomer && (
+            <div className="card chosen">
+              <div>
+                <div className="chosen-name" dir="auto">{customerLabel(customer)}</div>
+                <div className="muted num">{customer.phone || t('common.noPhone')}</div>
+              </div>
+              <button
+                type="button"
+                className="btn btn--quiet btn--small"
+                onClick={() => setPickingCustomer(true)}
+              >
+                {t('action.change')}
+              </button>
             </div>
           )}
+
+          <Collapsible open={pickingCustomer}>
+            <div className="toolbar">
+              <div className="toolbar-search">
+                <input
+                  className="input"
+                  type="search"
+                  value={customerQuery}
+                  onChange={(event) => setCustomerQuery(event.target.value)}
+                  placeholder={t('customers.search')}
+                  aria-label={t('customers.searchLabel')}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setAddingCustomer(true)}
+              >
+                {t('newJob.newCustomer')}
+              </button>
+            </div>
+
+            {visibleCustomers.length === 0 ? (
+              <p className="empty">
+                {customers.length === 0
+                  ? t('newJob.noCustomers')
+                  : t('newJob.noCustomerMatch', { query: customerQuery.trim() })}
+              </p>
+            ) : (
+              <div className="picker">
+                {visibleCustomers.map((row) => (
+                  <button
+                    type="button"
+                    key={row.id}
+                    className="picker-row"
+                    aria-pressed={customer?.id === row.id}
+                    onClick={() => chooseCustomer(row)}
+                  >
+                    <span dir="auto">{customerLabel(row)}</span>
+                    <span className="muted num">{row.phone || t('common.noPhone')}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Collapsible>
         </section>
       )}
 
       {step === 1 && (
         <section className="step-panel">
-          <div className="section-label">
-            <span>Vehicle</span>
-            <button
-              type="button"
-              className="btn btn--ghost btn--small"
-              onClick={() => setAddingVehicle(true)}
-            >
-              Add vehicle
-            </button>
-          </div>
-
           {vehiclesLoading ? (
-            <p className="muted">Loading vehicles…</p>
+            <p className="muted">{t('newJob.loadingVehicles')}</p>
           ) : (
-            <div className="picker">
-              <button
-                type="button"
-                className="picker-row"
-                aria-pressed={vehicleId === null}
-                onClick={() => {
-                  setVehicleId(null)
-                  setOdometer('')
-                }}
-              >
-                <span>No vehicle for this job</span>
-                <span className="muted">Roadside or counter sale</span>
-              </button>
+            <>
+              {vehicleChosen && !pickingVehicle && (
+                <div className="card chosen">
+                  <div>
+                    <div className="chosen-name num">
+                      {selectedVehicle
+                        ? vehicleLabel(selectedVehicle)
+                        : t('newJob.noVehicleForJob')}
+                    </div>
+                    <div className="muted">
+                      {selectedVehicle
+                        ? describeVehicle(selectedVehicle)
+                        : t('newJob.roadside')}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--quiet btn--small"
+                    onClick={() => setPickingVehicle(true)}
+                  >
+                    {t('action.change')}
+                  </button>
+                </div>
+              )}
 
-              {vehicles.map((vehicle) => (
-                <button
-                  type="button"
-                  key={vehicle.id}
-                  className="picker-row"
-                  aria-pressed={vehicleId === vehicle.id}
-                  onClick={() => {
-                    setVehicleId(vehicle.id)
-                    setOdometer(
-                      vehicle.current_odometer === null
-                        ? ''
-                        : String(vehicle.current_odometer),
-                    )
-                  }}
-                >
-                  <span className="num">{vehicle.plate || 'No plate'}</span>
-                  <span className="muted">{describeVehicle(vehicle)}</span>
-                </button>
-              ))}
-            </div>
+              <Collapsible open={!vehicleChosen || pickingVehicle}>
+                <div className="section-label">
+                  <span>{t('newJob.stepVehicle')}</span>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--small"
+                    onClick={() => setAddingVehicle(true)}
+                  >
+                    {t('newJob.addVehicle')}
+                  </button>
+                </div>
+
+                <div className="picker">
+                  {vehicles.map((vehicle) => (
+                    <button
+                      type="button"
+                      key={vehicle.id}
+                      className="picker-row"
+                      aria-pressed={vehicleId === vehicle.id}
+                      onClick={() => chooseVehicle(vehicle)}
+                    >
+                      <span className="num">{vehicleLabel(vehicle)}</span>
+                      <span className="muted">{describeVehicle(vehicle)}</span>
+                    </button>
+                  ))}
+
+                  {/* Not one of the cars — a different kind of answer, so it
+                      sits apart rather than at the head of the list. */}
+                  <button
+                    type="button"
+                    className="picker-row picker-row--none"
+                    aria-pressed={vehicleChosen && vehicleId === null}
+                    onClick={() => chooseVehicle(null)}
+                  >
+                    <span>{t('newJob.noVehicleForJob')}</span>
+                    <span className="muted">{t('newJob.roadside')}</span>
+                  </button>
+                </div>
+              </Collapsible>
+            </>
           )}
 
           {vehicleId !== null && (
             <>
               <label className="field field--narrow">
                 <span>
-                  Odometer today <span className="field-hint">km</span>
+                  {t('newJob.odometerToday')}{' '}
+                  <span className="field-hint">{t('common.km')}</span>
                 </span>
                 <input
                   className="num"
                   inputMode="numeric"
                   value={odometer}
                   onChange={(event) => setOdometer(event.target.value)}
-                  placeholder="84210"
+                  placeholder={t('vehicleForm.odometerPlaceholder')}
                 />
               </label>
               {odometerWarning && (
-                <p className="field-warning">{ODOMETER_WARNINGS[odometerWarning]}</p>
+                <p className="field-warning">{t(ODOMETER_WARNINGS[odometerWarning])}</p>
               )}
             </>
           )}
@@ -504,17 +651,17 @@ export default function NewJob() {
       {step === 2 && (
         <section className="step-panel">
           <div className="section-label">
-            <span>Services</span>
+            <span>{t('newJob.stepServices')}</span>
             <button
               type="button"
               className="btn btn--ghost btn--small"
               onClick={() => setAddingService(true)}
             >
-              New service
+              {t('newJob.newService')}
             </button>
           </div>
 
-          {lines.length === 0 && <p className="empty">No lines yet.</p>}
+          {lines.length === 0 && <p className="empty">{t('newJob.noLines')}</p>}
 
           {lines.map((line) => {
             const service = serviceById.get(line.serviceId)
@@ -528,38 +675,16 @@ export default function NewJob() {
             return (
               <div className="card line" key={line.key}>
                 <div className="line-main">
-                  <label className="field">
-                    <span>Service</span>
-                    <select
-                      value={line.serviceId}
-                      onChange={(event) =>
-                        setLines((current) =>
-                          current.map((row) =>
-                            row.key === line.key
-                              ? applyService(row, event.target.value)
-                              : row,
-                          ),
-                        )
-                      }
+                  <div className="field">
+                    <span>{t('jobEdit.service')}</span>
+                    <button
+                      type="button"
+                      className="picker-trigger"
+                      onClick={() => setPickingService(line.key)}
                     >
-                      <option value="">Choose a service</option>
-                      {categories.map((category) => {
-                        const options = services.filter(
-                          (row) => row.category_id === category.id,
-                        )
-                        if (options.length === 0) return null
-                        return (
-                          <optgroup key={category.id} label={category.name_en}>
-                            {options.map((row) => (
-                              <option key={row.id} value={row.id}>
-                                {row.name_en}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )
-                      })}
-                    </select>
-                  </label>
+                      {service ? service.name_en : t('newJob.chooseService')}
+                    </button>
+                  </div>
 
                   <button
                     type="button"
@@ -568,7 +693,7 @@ export default function NewJob() {
                       setLines((current) => current.filter((row) => row.key !== line.key))
                     }
                   >
-                    Remove
+                    {t('action.remove')}
                   </button>
                 </div>
 
@@ -587,9 +712,17 @@ export default function NewJob() {
                   />
                 )}
 
+                {service && tracksTires(service) && (
+                  <TireFields
+                    draft={line.tire}
+                    vehicleId={vehicleId}
+                    onChange={(next) => updateLine(line.key, { tire: next })}
+                  />
+                )}
+
                 {!line.serviceId && (
                   <p className="line-note muted">
-                    Choose a service — this line will be skipped otherwise.
+                    {t('newJob.chooseServiceHint')}
                   </p>
                 )}
 
@@ -598,7 +731,8 @@ export default function NewJob() {
                     <div className="grid-2">
                       <label className="field">
                         <span>
-                          Next due at <span className="field-hint">km</span>
+                          {t('newJob.nextDueAt')}{' '}
+                          <span className="field-hint">{t('common.km')}</span>
                         </span>
                         <input
                           className="num"
@@ -614,7 +748,7 @@ export default function NewJob() {
                         />
                       </label>
                       <label className="field">
-                        <span>Next due by</span>
+                        <span>{t('newJob.nextDueBy')}</span>
                         <input
                           className="num"
                           type="date"
@@ -627,14 +761,12 @@ export default function NewJob() {
                     </div>
                     {noReminder && (
                       <p className="line-flag">
-                        Both due fields are empty, so no reminder will be created for
-                        this line.
+                        {t('newJob.noReminderBlank')}
                       </p>
                     )}
                     {wontCreate && (
                       <p className="line-flag">
-                        No vehicle was picked for this job, so no reminder will be
-                        created. Go back to the vehicle step to add one.
+                        {t('newJob.noReminderNoVehicle')}
                       </p>
                     )}
                   </div>
@@ -647,9 +779,9 @@ export default function NewJob() {
             <button
               type="button"
               className="btn btn--ghost btn--small"
-              onClick={() => addLine()}
+              onClick={() => setPickingService('new')}
             >
-              Add line
+              {t('newJob.addLine')}
             </button>
           </div>
         </section>
@@ -658,13 +790,13 @@ export default function NewJob() {
       {step === 3 && (
         <section className="step-panel">
           <label className="field field--narrow">
-            <span>Payment method</span>
+            <span>{t('newJob.paymentMethod')}</span>
             <select
               value={paymentMethod}
               onChange={(event) => setPaymentMethod(event.target.value)}
               disabled={saving}
             >
-              <option value="">Not recorded</option>
+              <option value="">{t('common.notRecorded')}</option>
               {paymentMethods.map((method) => (
                 <option key={method.id} value={method.value} dir="auto">
                   {method.label_ar
@@ -676,16 +808,18 @@ export default function NewJob() {
           </label>
 
           <div className="section-label">
-            <span>Summary</span>
+            <span>{t('newJob.summary')}</span>
           </div>
 
           <div className="card summary">
             <div className="summary-row">
-              <span className="muted">Customer</span>
-              <span dir="auto">{customer ? customerLabel(customer) : '—'}</span>
+              <span className="muted">{t('newJob.summaryCustomer')}</span>
+              <span dir="auto">
+                {customer ? customerLabel(customer) : t('newJob.emptyValue')}
+              </span>
             </div>
             <div className="summary-row">
-              <span className="muted">Vehicle</span>
+              <span className="muted">{t('newJob.summaryVehicle')}</span>
               <span className="num">
                 {jobVehicleLabel(
                   vehicleId,
@@ -695,17 +829,22 @@ export default function NewJob() {
             </div>
             {jobOdometer !== null && (
               <div className="summary-row">
-                <span className="muted">Odometer</span>
-                <span className="num">{km(jobOdometer)} km</span>
+                <span className="muted">{t('newJob.summaryOdometer')}</span>
+                <span className="num">
+                  {km(jobOdometer)} {t('common.km')}
+                </span>
               </div>
             )}
 
             {filledLines.length === 0 ? (
-              <p className="summary-row muted">No service lines.</p>
+              <p className="summary-row muted">{t('newJob.noServiceLines')}</p>
             ) : (
               filledLines.map((line) => (
                 <div className="summary-row" key={line.key}>
-                  <span>{serviceById.get(line.serviceId)?.name_en ?? 'Service'}</span>
+                  <span>
+                    {serviceById.get(line.serviceId)?.name_en ??
+                      t('newJob.serviceFallback')}
+                  </span>
                   <span className="num">
                     {money(sumPrices(line.partPrice, line.laborPrice, line.subPrice))}
                   </span>
@@ -714,14 +853,13 @@ export default function NewJob() {
             )}
 
             <div className="summary-row summary-total">
-              <span>Lines total</span>
+              <span>{t('newJob.linesTotal')}</span>
               <span className="num">{money(linesTotal)}</span>
             </div>
           </div>
 
           <p className="field-note">
-            Tax and discount are not applied here — the saved total comes from the
-            job totals view.
+            {t('newJob.taxNote')}
           </p>
 
           {saveError && (
@@ -733,23 +871,28 @@ export default function NewJob() {
       )}
 
       <div className="step-actions">
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={() => setStep((current) => current - 1)}
-          disabled={step === 0 || saving}
-        >
-          Back
-        </button>
+        {/* Step 1 has nowhere to go back to — re-opening the customer list is
+            what Change does. */}
+        {step > 0 && (
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => goToStep(step - 1)}
+            disabled={saving}
+          >
+            {t('newJob.back')}
+          </button>
+        )}
 
         {step < STEPS.length - 1 ? (
           <button
             type="button"
             className="btn btn--dark"
-            onClick={() => setStep((current) => current + 1)}
+            ref={continueRef}
+            onClick={() => goToStep(step + 1)}
             disabled={!customer}
           >
-            Continue
+            {t('newJob.continue')}
           </button>
         ) : (
           <button
@@ -758,13 +901,17 @@ export default function NewJob() {
             onClick={handleSave}
             disabled={saving || !customer}
           >
-            {saving ? 'Saving…' : savedJob ? 'Retry lines' : 'Save job'}
+            {saving
+              ? t('action.saving')
+              : savedJob
+                ? t('newJob.retryLines')
+                : t('newJob.save')}
           </button>
         )}
       </div>
 
       {step === 0 && !customer && (
-        <p className="field-note">Pick a customer to continue.</p>
+        <p className="field-note">{t('newJob.pickCustomer')}</p>
       )}
 
       {addingCustomer && (
@@ -773,8 +920,27 @@ export default function NewJob() {
           onSaved={({ customer: created, vehicles: created_vehicles }) => {
             setCustomers((current) => [created, ...current])
             setCustomer(created)
+            setPickingCustomer(false)
             setVehicleLoad({ customerId: created.id, rows: created_vehicles })
             setAddingCustomer(false)
+          }}
+        />
+      )}
+
+      {pickingService !== null && (
+        <ServicePicker
+          services={services}
+          categories={categories}
+          onClose={() => setPickingService(null)}
+          onPick={(serviceId) => {
+            if (pickingService === 'new') addLine(serviceId)
+            else
+              setLines((current) =>
+                current.map((row) =>
+                  row.key === pickingService ? applyService(row, serviceId) : row,
+                ),
+              )
+            setPickingService(null)
           }}
         />
       )}
@@ -803,6 +969,8 @@ export default function NewJob() {
                 : { ...current, rows: [...current.rows, vehicle] },
             )
             setVehicleId(vehicle.id)
+            setVehicleChosen(true)
+            setPickingVehicle(false)
             setOdometer(
               vehicle.current_odometer === null ? '' : String(vehicle.current_odometer),
             )
@@ -831,7 +999,7 @@ function AddVehicleDialog({
     event.preventDefault()
 
     if (isBlankVehicle(draft)) {
-      setError('Fill in at least one field.')
+      setError(t('vehicleForm.needSomething'))
       return
     }
 
@@ -851,7 +1019,7 @@ function AddVehicleDialog({
       .single()
 
     if (insertError || !data) {
-      setError(insertError?.message ?? 'The vehicle could not be saved.')
+      setError(insertError?.message ?? t('vehicleForm.saveFailed'))
       setSaving(false)
       return
     }
@@ -860,7 +1028,7 @@ function AddVehicleDialog({
   }
 
   return (
-    <Dialog title="New vehicle" onClose={onClose} busy={saving}>
+    <Dialog title={t('vehicleForm.newTitle')} onClose={onClose} busy={saving}>
       <form onSubmit={handleSubmit} noValidate>
         <VehicleFields draft={draft} onChange={setDraft} disabled={saving} />
         {error && (
@@ -869,7 +1037,7 @@ function AddVehicleDialog({
           </p>
         )}
         <button type="submit" className="btn btn--dark btn--full" disabled={saving}>
-          {saving ? 'Saving…' : 'Save vehicle'}
+          {saving ? t('action.saving') : t('vehicleForm.save')}
         </button>
       </form>
     </Dialog>

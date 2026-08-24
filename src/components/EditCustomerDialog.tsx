@@ -4,6 +4,7 @@ import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import { useLookup } from '../lib/useLookup'
 import Dialog from './Dialog'
+import { t } from '../lib/i18n'
 import LookupSelect from './LookupSelect'
 
 type Customer = Database['public']['Tables']['customers']['Row']
@@ -39,7 +40,7 @@ export default function EditCustomerDialog({
 
     // customer_identifiable still applies on update, not just on insert.
     if (!trimmed.nameEn && !trimmed.nameAr && !trimmed.phone) {
-      setError('A customer needs at least a name or a phone number.')
+      setError(t('customerForm.needIdentity'))
       return
     }
 
@@ -62,7 +63,7 @@ export default function EditCustomerDialog({
       .single()
 
     if (updateError || !data) {
-      setError(updateError?.message ?? 'The changes could not be saved.')
+      setError(updateError?.message ?? t('customerForm.changesFailed'))
       setSaving(false)
       return
     }
@@ -71,11 +72,12 @@ export default function EditCustomerDialog({
   }
 
   return (
-    <Dialog title="Edit customer" onClose={onClose} busy={saving}>
+    <Dialog title={t('customerForm.editTitle')} onClose={onClose} busy={saving}>
       <form onSubmit={handleSubmit} noValidate>
         <label className="field">
           <span>
-            Name <span className="field-hint">English</span>
+            {t('customerForm.nameEn')}{' '}
+            <span className="field-hint">{t('customerForm.nameEnHint')}</span>
           </span>
           <input
             value={nameEn}
@@ -87,7 +89,8 @@ export default function EditCustomerDialog({
 
         <label className="field">
           <span>
-            Name <span className="field-hint">Arabic</span>
+            {t('customerForm.nameAr')}{' '}
+            <span className="field-hint">{t('customerForm.nameArHint')}</span>
           </span>
           <input
             dir="auto"
@@ -98,13 +101,13 @@ export default function EditCustomerDialog({
         </label>
 
         <label className="field">
-          <span>Phone</span>
+          <span>{t('customerForm.phone')}</span>
           <input
             className="num"
             type="tel"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
-            placeholder="079 000 0000"
+            placeholder={t('customerForm.phonePlaceholder')}
             disabled={saving}
           />
         </label>
@@ -116,7 +119,7 @@ export default function EditCustomerDialog({
             onChange={(event) => setOptIn(event.target.checked)}
             disabled={saving}
           />
-          Happy to receive WhatsApp reminders
+          {t('customerForm.optIn')}
         </label>
 
         <label className="checkbox-row">
@@ -126,12 +129,13 @@ export default function EditCustomerDialog({
             onChange={(event) => setIsPeriodic(event.target.checked)}
             disabled={saving}
           />
-          Comes in on a regular schedule
+          {t('customerForm.periodic')}
         </label>
 
         <label className="field">
           <span>
-            Source <span className="field-hint">how they found the shop</span>
+            {t('customerForm.source')}{' '}
+            <span className="field-hint">{t('customerForm.sourceHint')}</span>
           </span>
           <LookupSelect
             value={source}
@@ -142,7 +146,7 @@ export default function EditCustomerDialog({
         </label>
 
         <label className="field">
-          <span>Notes</span>
+          <span>{t('customerForm.notes')}</span>
           <textarea
             rows={3}
             dir="auto"
@@ -159,7 +163,7 @@ export default function EditCustomerDialog({
         )}
 
         <button type="submit" className="btn btn--dark btn--full" disabled={saving}>
-          {saving ? 'Saving…' : 'Save changes'}
+          {saving ? t('action.saving') : t('action.saveChanges')}
         </button>
       </form>
     </Dialog>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Database } from './types/database'
 import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
@@ -11,6 +11,7 @@ import type { MutableService } from './components/MuteDialog'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
 import { vehicleLabel } from './lib/vehicle'
 import { CONTACT_PROBLEM_LABELS, contactProblem } from './lib/contactHealth'
+import { t, tn } from './lib/i18n'
 import type { ContactHealth } from './lib/contactHealth'
 
 type Customer = Database['public']['Tables']['customers']['Row']
@@ -21,7 +22,21 @@ type Staff = Database['public']['Tables']['staff']['Row']
 
 type CustomerListItem = Customer & { vehicleCount: number; jobCount: number }
 
-export default function Customers({ staff }: { staff: Staff }) {
+export default function Customers({
+  staff,
+  focusCustomerId,
+  onFocusHandled,
+}: {
+  staff: Staff
+  /** Set when another screen linked straight to one customer. */
+  focusCustomerId?: string | null
+  onFocusHandled?: () => void
+}) {
+  // Captured at mount: this screen is mounted by the tab switch that carries
+  // the link, and re-reading it would refetch the whole list on clear.
+  const focusOnMount = useRef(focusCustomerId ?? null)
+  const notifyFocusHandled = useRef(onFocusHandled)
+
   const [customers, setCustomers] = useState<CustomerListItem[]>([])
   const [health, setHealth] = useState<Map<string, ContactHealth>>(new Map())
   const [fleetMakes, setFleetMakes] = useState<string[]>([])
@@ -92,13 +107,20 @@ export default function Customers({ staff }: { staff: Staff }) {
         ),
       )
 
-      setCustomers(
-        (data ?? []).map(({ vehicles, jobs, ...customer }) => ({
-          ...customer,
-          vehicleCount: vehicles[0]?.count ?? 0,
-          jobCount: jobs[0]?.count ?? 0,
-        })),
-      )
+      const list = (data ?? []).map(({ vehicles, jobs, ...customer }) => ({
+        ...customer,
+        vehicleCount: vehicles[0]?.count ?? 0,
+        jobCount: jobs[0]?.count ?? 0,
+      }))
+      setCustomers(list)
+
+      const focusId = focusOnMount.current
+      if (focusId) {
+        const focused = list.find((row) => row.id === focusId)
+        if (focused) setOpenCustomer(focused)
+        notifyFocusHandled.current?.()
+      }
+
       setLoading(false)
     }
 
@@ -120,13 +142,13 @@ export default function Customers({ staff }: { staff: Staff }) {
   )
 
   if (loading) {
-    return <p className="muted">Loading customers…</p>
+    return <p className="muted">{t('customers.loading')}</p>
   }
 
   if (error) {
     return (
       <div className="card notice">
-        <p>Could not load customers.</p>
+        <p>{t('customers.loadFailed')}</p>
         <p className="muted">{error}</p>
         <button
           type="button"
@@ -137,7 +159,7 @@ export default function Customers({ staff }: { staff: Staff }) {
             setReloadToken((token) => token + 1)
           }}
         >
-          Try again
+          {t('action.tryAgain')}
         </button>
       </div>
     )
@@ -152,17 +174,17 @@ export default function Customers({ staff }: { staff: Staff }) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name or phone"
-            aria-label="Search customers"
+            placeholder={t('customers.search')}
+            aria-label={t('customers.searchLabel')}
           />
         </div>
         <label className="field toolbar-field">
-          <span>Make</span>
+          <span>{t('customers.make')}</span>
           <select
             value={makeFilter}
             onChange={(event) => setMakeFilter(event.target.value)}
           >
-            <option value="">Any make</option>
+            <option value="">{t('customers.anyMake')}</option>
             {fleetMakes.map((make) => (
               <option key={make} value={make}>
                 {make}
@@ -171,19 +193,22 @@ export default function Customers({ staff }: { staff: Staff }) {
           </select>
         </label>
         <button type="button" className="btn btn--dark" onClick={() => setAdding(true)}>
-          Add customer
+          {t('customers.add')}
         </button>
       </div>
 
       {customers.length === 0 ? (
-        <p className="empty">No customers yet.</p>
+        <p className="empty">{t('customers.none')}</p>
       ) : visible.length === 0 ? (
         <p className="empty">
           {makeFilter && !query.trim()
-            ? `No customer has a ${makeFilter}.`
+            ? t('customers.noneWithMake', { make: makeFilter })
             : makeFilter
-              ? `No ${makeFilter} owner matches “${query.trim()}”.`
-              : `No customer matches “${query.trim()}”.`}
+              ? t('customers.noMakeMatch', {
+                  make: makeFilter,
+                  query: query.trim(),
+                })
+              : t('customers.noMatch', { query: query.trim() })}
         </p>
       ) : (
         <div className="customer-grid">
@@ -199,13 +224,15 @@ export default function Customers({ staff }: { staff: Staff }) {
                   {customerLabel(customer)}
                 </span>
                 {customer.whatsapp_opt_in ? (
-                  <span className="pill pill--green">Opted in</span>
+                  <span className="pill pill--green">{t('customers.optedIn')}</span>
                 ) : (
-                  <span className="pill pill--amber">No opt-in</span>
+                  <span className="pill pill--amber">{t('customers.notOptedIn')}</span>
                 )}
               </div>
 
-              <div className="customer-phone num">{customer.phone || 'No phone'}</div>
+              <div className="customer-phone num">
+                {customer.phone || t('common.noPhone')}
+              </div>
 
               {(() => {
                 // Consent and deliverability are different things, so the flag
@@ -213,16 +240,18 @@ export default function Customers({ staff }: { staff: Staff }) {
                 const problem = contactProblem(health.get(customer.id))
                 return problem ? (
                   <div className={`flag flag--${problem}`}>
-                    {CONTACT_PROBLEM_LABELS[problem]}
+                    {t(CONTACT_PROBLEM_LABELS[problem])}
                   </div>
                 ) : null
               })()}
 
               <div className="customer-counts">
-                <span className="num">{customer.vehicleCount}</span>{' '}
-                {customer.vehicleCount === 1 ? 'vehicle' : 'vehicles'} ·{' '}
-                <span className="num">{customer.jobCount}</span>{' '}
-                {customer.jobCount === 1 ? 'job' : 'jobs'}
+                {tn(
+                  customer.vehicleCount,
+                  'customers.vehiclesOne',
+                  'customers.vehiclesOther',
+                )}{' '}
+                · {tn(customer.jobCount, 'customers.jobsOne', 'customers.jobsOther')}
               </div>
             </button>
           ))}
@@ -435,7 +464,7 @@ function CustomerDetail({
       if (distinct.has(reminder.service_id)) continue
       distinct.set(reminder.service_id, {
         id: reminder.service_id,
-        name: reminder.services?.name_en ?? 'Unknown service',
+        name: reminder.services?.name_en ?? t('detail.unknownService'),
       })
     }
 
@@ -448,10 +477,10 @@ function CustomerDetail({
         <div className="detail-head">
           <div>
             <div className="detail-phone num">
-              {customer.phone || 'No phone on file'}
+              {customer.phone || t('detail.noPhoneOnFile')}
             </div>
             <div className="detail-since">
-              Customer since {customer.created_at.slice(0, 10)}
+              {t('detail.since', { date: customer.created_at.slice(0, 10) })}
               {customer.source ? ` · ${customer.source}` : ''}
             </div>
           </div>
@@ -460,17 +489,17 @@ function CustomerDetail({
             className="btn btn--ghost btn--small"
             onClick={() => setEditing(true)}
           >
-            Edit
+            {t('action.edit')}
           </button>
         </div>
 
         <div className="badge-row">
           {customer.whatsapp_opt_in ? (
-            <span className="pill pill--green">Opted in to WhatsApp</span>
+            <span className="pill pill--green">{t('detail.optedInWhatsApp')}</span>
           ) : (
-            <span className="pill pill--amber">No WhatsApp opt-in</span>
+            <span className="pill pill--amber">{t('detail.noOptIn')}</span>
           )}
-          {customer.is_periodic && <span className="pill">Regular schedule</span>}
+          {customer.is_periodic && <span className="pill">{t('detail.periodic')}</span>}
         </div>
 
         {(() => {
@@ -478,21 +507,24 @@ function CustomerDetail({
           if (!problem) return null
           return (
             <div className={`flag flag--block flag--${problem}`}>
-              <div className="flag-title">{CONTACT_PROBLEM_LABELS[problem]}</div>
+              <div className="flag-title">{t(CONTACT_PROBLEM_LABELS[problem])}</div>
               <div className="flag-detail">
                 {health?.failed_sends ? (
                   <>
-                    <span className="num">{health.failed_sends}</span> failed{' '}
-                    {health.failed_sends === 1 ? 'attempt' : 'attempts'}
+                    {tn(
+                      health.failed_sends,
+                      'detail.failedAttemptsOne',
+                      'detail.failedAttemptsOther',
+                    )}
                     {health.last_failure
-                      ? ', last on '
-                      : '. No failure recorded yet.'}
+                      ? t('detail.lastOn')
+                      : t('detail.noFailureYet')}
                     {health.last_failure && (
                       <span className="num">{health.last_failure.slice(0, 10)}</span>
                     )}
                   </>
                 ) : (
-                  'No failed attempts recorded.'
+                  t('detail.noFailures')
                 )}
               </div>
             </div>
@@ -509,7 +541,7 @@ function CustomerDetail({
       {loading && <p className="muted">Loading…</p>}
       {error && !loading && (
         <div className="card notice">
-          <p>Could not load this customer’s history.</p>
+          <p>{t('detail.historyFailed')}</p>
           <p className="muted">{error}</p>
         </div>
       )}
@@ -518,28 +550,28 @@ function CustomerDetail({
         <>
           <section className="detail-section">
             <div className="section-label">
-              <span>Vehicles</span>
+              <span>{t('detail.vehicles')}</span>
               <button
                 type="button"
                 className="btn btn--ghost btn--small"
                 onClick={() => setAddingVehicle(true)}
               >
-                Add vehicle
+                {t('detail.addVehicle')}
               </button>
             </div>
             {vehicles.length === 0 ? (
-              <p className="empty">No vehicle on file.</p>
+              <p className="empty">{t('detail.noVehicles')}</p>
             ) : (
               vehicles.map((vehicle) => (
                 <div className="card vehicle-card" key={vehicle.id}>
                   <div>
                     <div className="vehicle-plate num">
-                      {vehicle.plate || 'No plate'}
+                      {vehicle.plate || t('detail.noPlate')}
                     </div>
                     <div className="vehicle-spec">
                       {[vehicle.make, vehicle.model, vehicle.year]
                         .filter(Boolean)
-                        .join(' · ') || 'No details recorded'}
+                        .join(' · ') || t('detail.noVehicleDetails')}
                     </div>
                   </div>
                   <div className="vehicle-side">
@@ -553,7 +585,7 @@ function CustomerDetail({
                       className="btn btn--quiet btn--small"
                       onClick={() => setEditingVehicle(vehicle)}
                     >
-                      Edit
+                      {t('action.edit')}
                     </button>
                   </div>
                 </div>
@@ -563,16 +595,17 @@ function CustomerDetail({
 
           <section className="detail-section">
             <div className="section-label">
-              <span>Job history</span>
+              <span>{t('detail.jobHistory')}</span>
             </div>
             {jobs.length === 0 ? (
-              <p className="empty">No jobs yet.</p>
+              <p className="empty">{t('detail.noJobs')}</p>
             ) : (
               jobs.map((job) => (
                 <div className="list-row" key={job.id}>
                   <div>
                     <div>
-                      Job <span className="num">#{job.job_no}</span> ·{' '}
+                      {t('detail.jobPrefix')}{' '}
+                      <span className="num">#{job.job_no}</span> ·{' '}
                       {job.job_type.replace(/_/g, ' ')}
                     </div>
                     <div className="list-row-meta">
@@ -590,16 +623,16 @@ function CustomerDetail({
 
           <section className="detail-section">
             <div className="section-label">
-              <span>Pending reminders</span>
+              <span>{t('detail.pendingReminders')}</span>
             </div>
             {pendingReminders.length === 0 ? (
-              <p className="empty">None scheduled.</p>
+              <p className="empty">{t('detail.noneScheduled')}</p>
             ) : (
               pendingReminders.map(({ reminder, vehicle }) => (
                 <div className="list-row" key={reminder.id}>
                   <div>
                     <div>
-                      {reminder.services?.name_en ?? 'Unknown service'}
+                      {reminder.services?.name_en ?? t('detail.unknownService')}
                     </div>
                     <div className="list-row-meta num">
                       {vehicleLabel(vehicle)}
@@ -610,10 +643,12 @@ function CustomerDetail({
                       <div className="num">{reminder.due_date}</div>
                     )}
                     {reminder.due_odometer !== null && (
-                      <div className="num">{km(reminder.due_odometer)} km</div>
+                      <div className="num">
+                        {km(reminder.due_odometer)} {t('common.km')}
+                      </div>
                     )}
                     {!reminder.due_date && reminder.due_odometer === null && (
-                      <div>No due point set</div>
+                      <div>{t('detail.noDuePoint')}</div>
                     )}
                   </div>
                 </div>
@@ -623,36 +658,34 @@ function CustomerDetail({
 
           <section className="detail-section">
             <div className="section-label">
-              <span>Reminder mutes</span>
+              <span>{t('detail.mutes')}</span>
               <button
                 type="button"
                 className="btn btn--ghost btn--small"
                 onClick={() => setMuting(true)}
               >
-                Mute a reminder
+                {t('detail.muteAction')}
               </button>
             </div>
 
-            <p className="field-note">
-              A mute silences one kind of message. It is separate from the
-              WhatsApp opt-in above, which is consent to be contacted at all.
-            </p>
+            <p className="field-note">{t('detail.muteNote')}</p>
 
             {mutes.length === 0 ? (
-              <p className="empty">Nothing muted.</p>
+              <p className="empty">{t('detail.nothingMuted')}</p>
             ) : (
               mutes.map((mute) => (
                 <div className="list-row mute-row" key={mute.id}>
                   <div>
                     <div>
                       {mute.service_id === null ? (
-                        <span className="pill pill--amber">All reminders</span>
+                        <span className="pill pill--amber">{t('detail.allReminders')}</span>
                       ) : (
-                        mute.service_en ?? 'Unknown service'
+                        mute.service_en ?? t('detail.unknownService')
                       )}
                     </div>
                     <div className="list-row-meta">
-                      Muted <span className="num">{mute.muted_at?.slice(0, 10)}</span>
+                      {t('detail.mutedOn')}{' '}
+                      <span className="num">{mute.muted_at?.slice(0, 10)}</span>
                       {mute.reason ? ` · ${mute.reason}` : ''}
                     </div>
                   </div>
@@ -662,7 +695,7 @@ function CustomerDetail({
                     disabled={!mute.id || unmutingId === mute.id}
                     onClick={() => mute.id && unmute(mute.id)}
                   >
-                    {unmutingId === mute.id ? 'Unmuting…' : 'Unmute'}
+                    {unmutingId === mute.id ? t('detail.unmuting') : t('detail.unmute')}
                   </button>
                 </div>
               ))

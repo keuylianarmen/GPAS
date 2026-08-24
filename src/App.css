@@ -33,13 +33,21 @@
   padding: 14px 0;
 }
 
-.mark {
-  width: 22px;
-  height: 22px;
-  border: 3px solid #fff;
-  border-bottom-color: var(--crimson);
-  border-radius: 50%;
-  transform: rotate(-20deg);
+/* Smaller than the 22px ring it replaces: the mark is a solid shape filling
+   its whole box, so it carries more ink at the same height. */
+.brand-logo {
+  height: 20px;
+  width: auto;
+  display: block;
+}
+
+.brand-logo--lg {
+  height: 30px;
+}
+
+.brand--login {
+  justify-content: center;
+  padding: 0 0 18px;
 }
 
 .wordmark {
@@ -679,6 +687,11 @@
   border-top: 1px solid var(--hairline);
 }
 
+/* Keeps the primary action right-aligned even when nothing sits to its left. */
+.step-actions > :last-child {
+  margin-inline-start: auto;
+}
+
 /* Pickers -------------------------------------------------------------- */
 
 .picker {
@@ -1302,4 +1315,363 @@
 .fluid select:disabled {
   color: var(--muted);
   background: var(--surface);
+}
+
+/* Tire capture — same compact grammar as the fluid section. */
+
+.tires {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--hairline);
+}
+
+.tire {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 110px;
+}
+
+.tire--wide {
+  width: 150px;
+}
+
+.tire--narrow {
+  width: 78px;
+}
+
+.tire > span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.tire input:not([type='checkbox']),
+.tire select {
+  width: 100%;
+  padding: 7px 9px;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.tire select {
+  cursor: pointer;
+}
+
+.tire input:not([type='checkbox']):focus,
+.tire select:focus {
+  border-color: var(--ink);
+}
+
+.tire input:disabled,
+.tire select:disabled {
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.tire--check {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  padding-bottom: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tire--check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--crimson);
+}
+
+/* Quantity is the most-used field here, so it is taps rather than a dropdown. */
+.segmented {
+  display: flex;
+}
+
+.segment {
+  width: 34px;
+  padding: 7px 0;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-inline-start-width: 0;
+  cursor: pointer;
+}
+
+.segment:first-child {
+  border-inline-start-width: 1px;
+  border-start-start-radius: var(--radius-sm);
+  border-end-start-radius: var(--radius-sm);
+}
+
+.segment:last-child {
+  border-start-end-radius: var(--radius-sm);
+  border-end-end-radius: var(--radius-sm);
+}
+
+.segment:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.segment[aria-pressed='true'] {
+  color: var(--card);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.segment:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Collapsing pickers ---------------------------------------------------- */
+
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 220ms ease;
+}
+
+.collapsible[data-open='false'] {
+  grid-template-rows: 0fr;
+}
+
+.collapsible-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsible {
+    transition: none;
+  }
+}
+
+.chosen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 13px 15px;
+  border-inline-start: 3px solid var(--ink);
+}
+
+.chosen-name {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.chosen .muted {
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+/* Not a car — a different kind of answer, so it does not look like one. */
+.picker-row--none {
+  margin-top: 6px;
+  background: transparent;
+  border-style: dashed;
+}
+
+.picker-row--none[aria-pressed='true'] {
+  background: var(--card);
+}
+
+/* Service picker -------------------------------------------------------- */
+
+.picker-trigger {
+  width: 100%;
+  padding: 11px 13px;
+  font-size: 15px;
+  text-align: start;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.picker-trigger:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.picker-trigger:disabled {
+  color: var(--muted);
+  background: var(--surface);
+  cursor: default;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.chip {
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.chip:hover:not([aria-pressed='true']) {
+  border-color: var(--muted);
+}
+
+.chip[aria-pressed='true'] {
+  color: var(--card);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.picker-search {
+  margin-bottom: 18px;
+}
+
+.picker-section {
+  margin-bottom: 18px;
+}
+
+.picker-cat {
+  font-size: 12px;
+}
+
+/* Stats ----------------------------------------------------------------- */
+
+.stats-periods {
+  margin-bottom: 20px;
+}
+
+.figure {
+  margin-bottom: 28px;
+}
+
+.chart-card {
+  padding: 16px 12px 8px;
+}
+
+/* Recessive frame: the marks carry the meaning, not the chrome. */
+.chart-card .recharts-cartesian-grid line {
+  stroke-dasharray: 0;
+}
+
+.chart-card .recharts-tooltip-wrapper {
+  outline: none;
+}
+
+.stats-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+.lapsed-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 13px 15px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.lapsed-row:hover {
+  border-color: var(--muted);
+}
+
+.lapsed-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.lapsed-side {
+  text-align: end;
+  white-space: nowrap;
+}
+
+/* Dismissed reminders --------------------------------------------------- */
+
+/* Cancelled, but still on screen while the undo window runs. */
+.reminder--dismissed {
+  background: var(--surface);
+  border-style: dashed;
+}
+
+.reminder--dismissed .reminder-service,
+.reminder--dismissed .reminder-who,
+.reminder--dismissed .reminder-due {
+  color: var(--muted);
+}
+
+.reminder--dismissed .reminder-service {
+  font-weight: 400;
+  text-decoration: line-through;
+}
+
+.disclosure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.disclosure-mark {
+  display: inline-block;
+  width: 10px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.disclosure .muted {
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+}
+
+/* Reminder filters ------------------------------------------------------ */
+
+/* Sticky so the counts stay readable while scrolling a long queue. */
+.filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: -8px 0 18px;
+  padding: 12px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.filter-bar .chips {
+  margin-bottom: 0;
+}
+
+.filter-bar .chip .num {
+  margin-inline-start: 2px;
+  opacity: 0.65;
 }

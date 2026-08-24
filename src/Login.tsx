@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from './lib/supabase'
+import { t } from './lib/i18n'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -13,15 +14,15 @@ export default function Login() {
 
     const trimmedEmail = email.trim()
     if (!trimmedEmail && !password) {
-      setError('Enter your email and password.')
+      setError(t('login.needBoth'))
       return
     }
     if (!trimmedEmail) {
-      setError('Enter your email.')
+      setError(t('login.needEmail'))
       return
     }
     if (!password) {
-      setError('Enter your password.')
+      setError(t('login.needPassword'))
       return
     }
 
@@ -44,13 +45,22 @@ export default function Login() {
   return (
     <main className="centered">
       <form className="card panel" onSubmit={handleSubmit} noValidate>
+        <div className="brand brand--login">
+          <img
+            className="brand-logo brand-logo--lg"
+            src="/logo.svg"
+            alt={t('brand.alt')}
+          />
+          <span className="wordmark">{t('brand.name')}</span>
+        </div>
+
         <div className="panel-head">
-          <h1>Sign in</h1>
-          <p className="muted">Shop staff only.</p>
+          <h1>{t('login.title')}</h1>
+          <p className="muted">{t('login.subtitle')}</p>
         </div>
 
         <label className="field">
-          <span>Email</span>
+          <span>{t('login.email')}</span>
           <input
             type="email"
             value={email}
@@ -62,7 +72,7 @@ export default function Login() {
         </label>
 
         <label className="field">
-          <span>Password</span>
+          <span>{t('login.password')}</span>
           <input
             type="password"
             value={password}
@@ -83,7 +93,7 @@ export default function Login() {
           className="btn btn--dark btn--full"
           disabled={submitting}
         >
-          {submitting ? 'Signing in…' : 'Sign in'}
+          {submitting ? t('login.submitting') : t('login.submit')}
         </button>
       </form>
     </main>
