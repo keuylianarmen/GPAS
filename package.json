@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "lint": "eslint . && npm run check:strings",
+    "preview": "vite preview",
+    "check:strings": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-strings.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
