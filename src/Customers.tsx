@@ -9,6 +9,7 @@ import VehicleDialog from './components/VehicleDialog'
 import MuteDialog from './components/MuteDialog'
 import type { MutableService } from './components/MuteDialog'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
+import { useLookup } from './lib/useLookup'
 import { vehicleLabel } from './lib/vehicle'
 import { CONTACT_PROBLEM_LABELS, contactProblem } from './lib/contactHealth'
 import { localised, t, tn } from './lib/i18n'
@@ -49,6 +50,10 @@ export default function Customers({
 
   const [query, setQuery] = useState('')
   const [makeFilter, setMakeFilter] = useState('')
+  // Display only. v_fleet_by_make aggregates vehicles.make, which holds the
+  // English label and nothing else, so the Arabic name has to come back from
+  // the lookup list the label was picked from.
+  const makeList = useLookup('vehicle_make')
   const [openCustomer, setOpenCustomer] = useState<CustomerListItem | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -141,6 +146,20 @@ export default function Customers({
     [customers, query, makeFilter, makesByCustomer],
   )
 
+  // Keyed on label_en because that is what vehicles.make stores. Locale is
+  // applied at render rather than baked in here, so switching language does
+  // not need the map rebuilt.
+  const makeRows = useMemo(
+    () => new Map(makeList.map((row) => [row.label_en, row] as const)),
+    [makeList],
+  )
+
+  /** Never changes what is matched on — only what is read. */
+  function makeLabel(make: string): string {
+    const row = makeRows.get(make)
+    return (row && localised(row.label_en, row.label_ar)) || make
+  }
+
   if (loading) {
     return <p className="muted">{t('customers.loading')}</p>
   }
@@ -187,7 +206,7 @@ export default function Customers({
             <option value="">{t('customers.anyMake')}</option>
             {fleetMakes.map((make) => (
               <option key={make} value={make}>
-                {make}
+                {makeLabel(make)}
               </option>
             ))}
           </select>
@@ -202,10 +221,10 @@ export default function Customers({
       ) : visible.length === 0 ? (
         <p className="empty">
           {makeFilter && !query.trim()
-            ? t('customers.noneWithMake', { make: makeFilter })
+            ? t('customers.noneWithMake', { make: makeLabel(makeFilter) })
             : makeFilter
               ? t('customers.noMakeMatch', {
-                  make: makeFilter,
+                  make: makeLabel(makeFilter),
                   query: query.trim(),
                 })
               : t('customers.noMatch', { query: query.trim() })}
