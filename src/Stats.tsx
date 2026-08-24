@@ -18,12 +18,13 @@ import { todayIso } from './lib/date'
 import { customerLabel } from './lib/customer'
 import { PERIODS, monthLabel, periodStart, withinPeriod } from './lib/period'
 import type { Period } from './lib/period'
-import { localised, t, tn } from './lib/i18n'
+import { localised, t, tn, useLocale } from './lib/i18n'
 import {
-  AXIS_TICK,
-  CHART_INK,
-  SERIES,
+  TOOLTIP_ITEM_STYLE,
+  TOOLTIP_LABEL_STYLE,
   TOOLTIP_STYLE,
+  axisTick,
+  chartTheme,
   compactNumber,
   tooltipNumber,
 } from './lib/chart'
@@ -137,6 +138,12 @@ export default function Stats({
     }
   }, [])
 
+  // localised() and t() read the active locale at call time, so anything that
+  // bakes their output into a memo has to name the locale as an input or the
+  // memo hands back last language's strings. The tree re-renders on a switch;
+  // it is the memos that do not recompute.
+  const locale = useLocale()
+
   const months = useMemo(
     () => byMonth.filter((row) => withinPeriod(row.month, start)),
     [byMonth, start],
@@ -154,6 +161,9 @@ export default function Stats({
     return { revenue, jobs, average, customers }
   }, [months, activity, start])
 
+  const ink = chartTheme()
+  const tick = axisTick(ink)
+
   const categoryBars = useMemo(() => {
     const byName = new Map<string, number>()
     for (const row of byCategory) {
@@ -166,7 +176,8 @@ export default function Stats({
       .map(([category, revenue]) => ({ category, revenue }))
       .filter((row) => row.revenue > 0)
       .sort((a, b) => b.revenue - a.revenue)
-  }, [byCategory, start])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- localised() reads the locale from module state; the linter cannot see it
+  }, [byCategory, start, locale])
 
   const services = useMemo(() => {
     const merged = new Map<
@@ -192,7 +203,8 @@ export default function Stats({
       byRevenue: [...all].sort((a, b) => b.revenue - a.revenue).slice(0, 10),
       byFrequency: [...all].sort((a, b) => b.times - a.times).slice(0, 10),
     }
-  }, [byService, start])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- localised() reads the locale from module state; the linter cannot see it
+  }, [byService, start, locale])
 
   const trend = useMemo(
     () =>
@@ -201,7 +213,8 @@ export default function Stats({
         revenue: row.revenue ?? 0,
         jobs: row.jobs ?? 0,
       })),
-    [months],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- monthLabel() calls t(), which reads the locale from module state
+    [months, locale],
   )
 
   const retentionBars = useMemo(
@@ -213,7 +226,8 @@ export default function Stats({
           returning: row.returning_customers ?? 0,
           new: row.new_customers ?? 0,
         })),
-    [retention, start],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- monthLabel() calls t(), which reads the locale from module state
+    [retention, start, locale],
   )
 
   if (loading) return <p className="muted">{t('app.loading')}</p>
@@ -284,32 +298,34 @@ export default function Stats({
               })
         }
       >
-        <div className="card chart-card">
+        <div className="chart-card">
           <ResponsiveContainer width="100%" height={Math.max(200, categoryBars.length * 30)}>
             <BarChart
               data={categoryBars}
               layout="vertical"
               margin={{ top: 4, right: 16, bottom: 4, left: 8 }}
             >
-              <CartesianGrid stroke={CHART_INK.grid} horizontal={false} />
+              <CartesianGrid stroke={ink.grid} horizontal={false} />
               <XAxis
                 type="number"
-                tick={AXIS_TICK}
+                tick={tick}
                 tickLine={false}
-                axisLine={{ stroke: CHART_INK.grid }}
+                axisLine={false}
                 tickFormatter={compactNumber}
               />
               <YAxis
                 type="category"
                 dataKey="category"
                 width={150}
-                tick={AXIS_TICK}
+                tick={tick}
                 tickLine={false}
                 axisLine={false}
               />
               <Tooltip
-                cursor={{ fill: 'rgba(26,28,29,0.04)' }}
+                cursor={{ fill: ink.cursor }}
                 contentStyle={TOOLTIP_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
                 formatter={(value: TooltipValue) => [
                   `${money(tooltipNumber(value))} ${t('common.currency')}`,
                   t('stats.revenue'),
@@ -317,7 +333,7 @@ export default function Stats({
               />
               <Bar
                 dataKey="revenue"
-                fill={SERIES.revenue}
+                fill={ink.revenue}
                 radius={[0, 4, 4, 0]}
                 barSize={14}
                 isAnimationActive={false}
@@ -337,19 +353,19 @@ export default function Stats({
             : t('stats.onlyOneMonth', { month: trend[0].month })
         }
       >
-        <div className="card chart-card">
+        <div className="chart-card">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={trend} margin={{ top: 8, right: 12, bottom: 4, left: 4 }}>
-              <CartesianGrid stroke={CHART_INK.grid} vertical={false} />
+              <CartesianGrid stroke={ink.grid} vertical={false} />
               <XAxis
                 dataKey="month"
-                tick={AXIS_TICK}
+                tick={tick}
                 tickLine={false}
-                axisLine={{ stroke: CHART_INK.grid }}
+                axisLine={false}
               />
               <YAxis
                 yAxisId="revenue"
-                tick={AXIS_TICK}
+                tick={tick}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={compactNumber}
@@ -357,13 +373,15 @@ export default function Stats({
               <YAxis
                 yAxisId="jobs"
                 orientation="right"
-                tick={AXIS_TICK}
+                tick={tick}
                 tickLine={false}
                 axisLine={false}
                 allowDecimals={false}
               />
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
                 formatter={(value: TooltipValue, name: TooltipName) =>
                   name === t('stats.revenue')
                     ? [
@@ -378,18 +396,18 @@ export default function Stats({
                 yAxisId="revenue"
                 name={t('stats.revenue')}
                 dataKey="revenue"
-                stroke={SERIES.revenue}
+                stroke={ink.revenue}
                 strokeWidth={2}
-                dot={{ r: 4, strokeWidth: 0, fill: SERIES.revenue }}
+                dot={{ r: 4, strokeWidth: 0, fill: ink.revenue }}
                 isAnimationActive={false}
               />
               <Line
                 yAxisId="jobs"
                 name={t('stats.jobs')}
                 dataKey="jobs"
-                stroke={SERIES.count}
+                stroke={ink.count}
                 strokeWidth={2}
-                dot={{ r: 4, strokeWidth: 0, fill: SERIES.count }}
+                dot={{ r: 4, strokeWidth: 0, fill: ink.count }}
                 isAnimationActive={false}
               />
             </LineChart>
@@ -402,7 +420,7 @@ export default function Stats({
           title={t('stats.topByRevenue')}
           rows={services.byRevenue}
           dataKey="revenue"
-          color={SERIES.revenue}
+          color={ink.revenue}
           format={(value) => `${money(value)} ${t('common.currency')}`}
           label={t('stats.revenue')}
         />
@@ -410,7 +428,7 @@ export default function Stats({
           title={t('stats.topByFrequency')}
           rows={services.byFrequency}
           dataKey="times"
-          color={SERIES.count}
+          color={ink.count}
           format={(value) => tn(value, 'stats.times')}
           label={t('stats.timesDone')}
         />
@@ -426,28 +444,30 @@ export default function Stats({
             : t('stats.onlyOneActiveMonth', { month: retentionBars[0].month })
         }
       >
-        <div className="card chart-card">
+        <div className="chart-card">
           <ResponsiveContainer width="100%" height={340}>
             <BarChart
               data={retentionBars}
               margin={{ top: 8, right: 12, bottom: 4, left: 4 }}
             >
-              <CartesianGrid stroke={CHART_INK.grid} vertical={false} />
+              <CartesianGrid stroke={ink.grid} vertical={false} />
               <XAxis
                 dataKey="month"
-                tick={AXIS_TICK}
+                tick={tick}
                 tickLine={false}
-                axisLine={{ stroke: CHART_INK.grid }}
+                axisLine={false}
               />
               <YAxis
-                tick={AXIS_TICK}
+                tick={tick}
                 tickLine={false}
                 axisLine={false}
                 allowDecimals={false}
               />
               <Tooltip
-                cursor={{ fill: 'rgba(26,28,29,0.04)' }}
+                cursor={{ fill: ink.cursor }}
                 contentStyle={TOOLTIP_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {/* A 2px surface stroke keeps a gap between the stacked fills. */}
@@ -455,8 +475,8 @@ export default function Stats({
                 stackId="customers"
                 name={t('stats.returning')}
                 dataKey="returning"
-                fill={SERIES.count}
-                stroke={CHART_INK.surface}
+                fill={ink.count}
+                stroke={ink.surface}
                 strokeWidth={2}
                 barSize={36}
                 isAnimationActive={false}
@@ -465,8 +485,8 @@ export default function Stats({
                 stackId="customers"
                 name={t('stats.new')}
                 dataKey="new"
-                fill={SERIES.revenue}
-                stroke={CHART_INK.surface}
+                fill={ink.revenue}
+                stroke={ink.surface}
                 strokeWidth={2}
                 barSize={36}
                 radius={[4, 4, 0, 0]}
@@ -539,12 +559,13 @@ function ServiceTick({
   categories,
 }: TickProps & { categories: Map<string, string> }) {
   const name = String(payload?.value ?? '')
+  const ink = chartTheme()
   return (
     <g transform={`translate(${x ?? 0},${y ?? 0})`}>
-      <text x={-8} y={-3} textAnchor="end" fill="#1a1c1d" fontSize={11}>
+      <text x={-8} y={-3} textAnchor="end" fill={ink.label} fontSize={11}>
         {name.length > 26 ? `${name.slice(0, 25)}…` : name}
       </text>
-      <text x={-8} y={9} textAnchor="end" fill={CHART_INK.axis} fontSize={10}>
+      <text x={-8} y={9} textAnchor="end" fill={ink.axis} fontSize={10}>
         {categories.get(name) ?? ''}
       </text>
     </g>
@@ -566,6 +587,9 @@ function ServiceBars({
   format: (value: number) => string
   label: string
 }) {
+  const ink = chartTheme()
+  const tick = axisTick(ink)
+
   const categories = useMemo(
     () => new Map(rows.map((row) => [row.service, row.category])),
     [rows],
@@ -584,19 +608,19 @@ function ServiceBars({
           : t('stats.onlyOneService', { service: withValue[0].service })
       }
     >
-      <div className="card chart-card">
+      <div className="chart-card">
         <ResponsiveContainer width="100%" height={Math.max(200, withValue.length * 34)}>
           <BarChart
             data={withValue}
             layout="vertical"
             margin={{ top: 4, right: 16, bottom: 4, left: 8 }}
           >
-            <CartesianGrid stroke={CHART_INK.grid} horizontal={false} />
+            <CartesianGrid stroke={ink.grid} horizontal={false} />
             <XAxis
               type="number"
-              tick={AXIS_TICK}
+              tick={tick}
               tickLine={false}
-              axisLine={{ stroke: CHART_INK.grid }}
+              axisLine={false}
               tickFormatter={compactNumber}
               allowDecimals={false}
             />
@@ -609,8 +633,10 @@ function ServiceBars({
               tick={(props) => <ServiceTick {...props} categories={categories} />}
             />
             <Tooltip
-              cursor={{ fill: 'rgba(26,28,29,0.04)' }}
+              cursor={{ fill: ink.cursor }}
               contentStyle={TOOLTIP_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
+                itemStyle={TOOLTIP_ITEM_STYLE}
               formatter={(value: TooltipValue) => [
                 format(tooltipNumber(value)),
                 label,

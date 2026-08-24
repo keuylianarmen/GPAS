@@ -6,6 +6,23 @@
   --crimson: #a32d2d;
   --muted: #6e7071;
 
+  /* Chart furniture, as ink tinted into --surface. The panel is a 4% tint and
+     the grid a 10% one: the pair keeps six points between them, which is the
+     separation the grid had against the bare page, so the lines lose nothing
+     by moving onto a panel. The panel's own edge is deliberately the weaker
+     of the two — it frames the plot without competing with what is drawn
+     inside it. */
+  --chart-panel: #e9e8e5;
+  --chart-grid: #dcdcd8;
+  /* The second series. Crimson is the first; this is the nearest restrained
+     partner that clears colour-vision separation against it. */
+  --chart-count: #2b6ca8;
+  /* The band behind a hovered mark: a wash of ink, not a grey block. */
+  --chart-cursor: rgb(26 28 29 / 4%);
+
+  /* Anything floating over the page — a tooltip, a typeahead list. */
+  --shadow-float: 0 6px 20px rgb(26 28 29 / 12%);
+
   --amber: #8a5a06;
   --amber-bg: #faf3e4;
   --green: #2f6b4f;

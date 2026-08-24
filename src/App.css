@@ -502,7 +502,7 @@
   background: var(--card);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-sm);
-  box-shadow: 0 6px 20px rgb(26 28 29 / 12%);
+  box-shadow: var(--shadow-float);
 }
 
 .typeahead-row {
@@ -1655,13 +1655,28 @@
   margin-bottom: 28px;
 }
 
+/*
+ * A recess rather than a card: a shade darker than the page, no border and no
+ * shadow, so the plot reads as set into the page instead of sitting on top of
+ * it. The tonal step and the radius hold the edge on their own — a hairline
+ * here is four times the contrast of the panel itself and reads as a card
+ * again. Less bottom padding because the x-axis labels bring their own.
+ */
 .chart-card {
-  padding: 16px 12px 8px;
+  padding: 16px 16px 8px;
+  background: var(--chart-panel);
+  border-radius: var(--radius);
 }
 
 /* Recessive frame: the marks carry the meaning, not the chrome. */
 .chart-card .recharts-cartesian-grid line {
   stroke-dasharray: 0;
+}
+
+/* A legend sits outside the plot area, so it wears page text, not chart ink. */
+.chart-card .recharts-legend-item-text {
+  color: var(--muted) !important;
+  font-size: 12px;
 }
 
 .chart-card .recharts-tooltip-wrapper {
@@ -1814,8 +1829,19 @@
   direction: ltr;
 }
 
+/*
+ * NOT `direction: rtl`. In SVG, text-anchor 'start' and 'end' resolve against
+ * the inline-base direction, so flipping direction flips what 'end' means:
+ * the category ticks, anchored end at the axis line to run leftward into the
+ * axis gutter, ran rightward across the plot instead and landed on the bars.
+ *
+ * plaintext gives each label its own paragraph direction from its own first
+ * strong character — Arabic reads right-to-left inside its box, a Latin model
+ * name still reads left-to-right — while `direction` stays ltr, so the anchor
+ * keeps the meaning recharts laid the axis out with.
+ */
 [dir='rtl'] .chart-card .recharts-text {
-  direction: rtl;
+  unicode-bidi: plaintext;
 }
 
 /* Service edit ---------------------------------------------------------- */
