@@ -257,7 +257,7 @@ export default function Jobs({
         {(customerFilter || fromDate || toDate) && (
           <button
             type="button"
-            className="btn btn--quiet btn--small toolbar-clear"
+            className="btn btn--quiet btn--small"
             onClick={() => {
               setCustomerFilter('')
               setFromDate('')

@@ -32,6 +32,13 @@
     'Helvetica Neue', Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
+  /* Every single-line control is exactly this tall. Height is declared
+     rather than left to accumulate from padding plus whatever line box the
+     control decides on: `font: inherit` below hands controls the root's
+     1.5 line-height, an <input> honours it and a <select> does not, so the
+     same rule produced two different heights. */
+  --control-height: 42px;
+
   --radius: 10px;
   --radius-sm: 8px;
 
@@ -119,7 +126,11 @@ textarea {
 
 .btn {
   padding: 11px 18px;
-  min-height: 42px;
+  min-block-size: var(--control-height);
+  /* Same reason the inputs pin it: `font: inherit` above hands buttons the
+     root's 1.5 line-height, which inflated them to 45px and made
+     min-block-size decorative. Pinned, the declared minimum governs. */
+  line-height: 1;
   font-size: 14px;
   font-weight: 500;
   border: 1px solid transparent;
@@ -164,7 +175,7 @@ textarea {
 
 .btn--small {
   padding: 8px 12px;
-  min-height: 34px;
+  min-block-size: 34px;
   font-size: 13px;
 }
 
