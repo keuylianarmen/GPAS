@@ -27,6 +27,10 @@ export default function EditCustomerDialog({
     initialAr: customer.name_ar ?? '',
     suggest: !(customer.name_en?.trim() && customer.name_ar?.trim()),
   })
+  // Both marks are mutually exclusive per field: one holds what the user
+  // typed, the other holds what the app suggested.
+  const enMark = names.markOf('en')
+  const arMark = names.markOf('ar')
   const [phone, setPhone] = useState(customer.phone ?? '')
   const [optIn, setOptIn] = useState(customer.whatsapp_opt_in)
   const [isPeriodic, setIsPeriodic] = useState(customer.is_periodic)
@@ -86,17 +90,20 @@ export default function EditCustomerDialog({
           <span>
             {t('customerForm.nameEn')}{' '}
             <span className="field-hint">{t('customerForm.nameEnHint')}</span>
-            {names.suggested === 'en' && (
-              <> <span className="field-hint">{t('customerForm.suggested')}</span></>
+            {enMark && (
+              <> <span className="field-hint">
+                {t(enMark === 'suggested' ? 'customerForm.suggested' : 'customerForm.movedHere')}
+              </span></>
             )}
           </span>
           <input
-            className={names.suggested === 'en' ? 'is-suggested' : undefined}
+            className={enMark ? `is-${enMark}` : undefined}
+            autoFocus
             value={names.en}
             onChange={(event) => names.setEn(event.target.value)}
             onBlur={names.onBlurEn}
+            placeholder={t('customerForm.nameEnPlaceholder')}
             disabled={saving}
-            autoFocus
           />
         </label>
 
@@ -104,16 +111,19 @@ export default function EditCustomerDialog({
           <span>
             {t('customerForm.nameAr')}{' '}
             <span className="field-hint">{t('customerForm.nameArHint')}</span>
-            {names.suggested === 'ar' && (
-              <> <span className="field-hint">{t('customerForm.suggested')}</span></>
+            {arMark && (
+              <> <span className="field-hint">
+                {t(arMark === 'suggested' ? 'customerForm.suggested' : 'customerForm.movedHere')}
+              </span></>
             )}
           </span>
           <input
-            className={names.suggested === 'ar' ? 'is-suggested' : undefined}
+            className={arMark ? `is-${arMark}` : undefined}
             dir="auto"
             value={names.ar}
             onChange={(event) => names.setAr(event.target.value)}
             onBlur={names.onBlurAr}
+            placeholder={t('customerForm.nameArPlaceholder')}
             disabled={saving}
           />
         </label>

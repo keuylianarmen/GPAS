@@ -471,6 +471,13 @@
   border-color: var(--ink);
 }
 
+/* Text the app moved here from the other name field. Solid and green against
+   the suggestion's dashed grey: this is the user's own typing, already in the
+   right place — the pair of marks is what explains the jump. */
+.field input.is-moved {
+  border-color: var(--green);
+}
+
 /* Customer list -------------------------------------------------------- */
 
 .customer-grid {

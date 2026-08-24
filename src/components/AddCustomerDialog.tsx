@@ -30,6 +30,10 @@ export default function AddCustomerDialog({
   // A new customer has nothing typed yet, so a suggestion can never be
   // sitting on top of someone's own correction here.
   const names = useCustomerNames({ suggest: true })
+  // Both marks are mutually exclusive per field: one holds what the user
+  // typed, the other holds what the app suggested.
+  const enMark = names.markOf('en')
+  const arMark = names.markOf('ar')
   const [phone, setPhone] = useState('')
   const [optIn, setOptIn] = useState(false)
   const [drafts, setDrafts] = useState<VehicleDraft[]>([emptyVehicleDraft()])
@@ -154,17 +158,20 @@ export default function AddCustomerDialog({
           <span>
             {t('customerForm.nameEn')}{' '}
             <span className="field-hint">{t('customerForm.nameEnHint')}</span>
-            {names.suggested === 'en' && (
-              <> <span className="field-hint">{t('customerForm.suggested')}</span></>
+            {enMark && (
+              <> <span className="field-hint">
+                {t(enMark === 'suggested' ? 'customerForm.suggested' : 'customerForm.movedHere')}
+              </span></>
             )}
           </span>
           <input
-            className={names.suggested === 'en' ? 'is-suggested' : undefined}
+            className={enMark ? `is-${enMark}` : undefined}
+            autoFocus
             value={names.en}
             onChange={(event) => names.setEn(event.target.value)}
             onBlur={names.onBlurEn}
+            placeholder={t('customerForm.nameEnPlaceholder')}
             disabled={saving}
-            autoFocus
           />
         </label>
 
@@ -172,16 +179,19 @@ export default function AddCustomerDialog({
           <span>
             {t('customerForm.nameAr')}{' '}
             <span className="field-hint">{t('customerForm.nameArHint')}</span>
-            {names.suggested === 'ar' && (
-              <> <span className="field-hint">{t('customerForm.suggested')}</span></>
+            {arMark && (
+              <> <span className="field-hint">
+                {t(arMark === 'suggested' ? 'customerForm.suggested' : 'customerForm.movedHere')}
+              </span></>
             )}
           </span>
           <input
-            className={names.suggested === 'ar' ? 'is-suggested' : undefined}
+            className={arMark ? `is-${arMark}` : undefined}
             dir="auto"
             value={names.ar}
             onChange={(event) => names.setAr(event.target.value)}
             onBlur={names.onBlurAr}
+            placeholder={t('customerForm.nameArPlaceholder')}
             disabled={saving}
           />
         </label>
