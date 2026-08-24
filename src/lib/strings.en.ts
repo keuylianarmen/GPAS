@@ -176,6 +176,7 @@ export const en = {
   'customerForm.nameEnHint': 'English',
   'customerForm.nameAr': 'Name',
   'customerForm.nameArHint': 'Arabic',
+  'customerForm.suggested': 'suggested',
   'customerForm.phone': 'Phone',
   'customerForm.phoneHint': 'needed for reminders',
   'customerForm.phonePlaceholder': '079 000 0000',

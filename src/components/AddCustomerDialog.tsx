@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import { customerLabel } from '../lib/customer'
+import { useCustomerNames } from '../lib/useCustomerNames'
 import Dialog from './Dialog'
 import { t, tn } from '../lib/i18n'
 import VehicleFields from './VehicleFields'
@@ -26,8 +27,9 @@ export default function AddCustomerDialog({
   onClose: () => void
   onSaved: (result: NewCustomerResult) => void
 }) {
-  const [nameEn, setNameEn] = useState('')
-  const [nameAr, setNameAr] = useState('')
+  // A new customer has nothing typed yet, so a suggestion can never be
+  // sitting on top of someone's own correction here.
+  const names = useCustomerNames({ suggest: true })
   const [phone, setPhone] = useState('')
   const [optIn, setOptIn] = useState(false)
   const [drafts, setDrafts] = useState<VehicleDraft[]>([emptyVehicleDraft()])
@@ -50,8 +52,8 @@ export default function AddCustomerDialog({
     event.preventDefault()
 
     const trimmed = {
-      nameEn: nameEn.trim(),
-      nameAr: nameAr.trim(),
+      nameEn: names.en.trim(),
+      nameAr: names.ar.trim(),
       phone: phone.trim(),
     }
 
@@ -85,6 +87,8 @@ export default function AddCustomerDialog({
       }
       customer = data
       setSavedCustomer(data)
+      // Saved, so whatever is in the fields is the customer's name now.
+      names.accept()
     }
 
     const saved = new Map(savedVehicles)
@@ -150,10 +154,15 @@ export default function AddCustomerDialog({
           <span>
             {t('customerForm.nameEn')}{' '}
             <span className="field-hint">{t('customerForm.nameEnHint')}</span>
+            {names.suggested === 'en' && (
+              <> <span className="field-hint">{t('customerForm.suggested')}</span></>
+            )}
           </span>
           <input
-            value={nameEn}
-            onChange={(event) => setNameEn(event.target.value)}
+            className={names.suggested === 'en' ? 'is-suggested' : undefined}
+            value={names.en}
+            onChange={(event) => names.setEn(event.target.value)}
+            onBlur={names.onBlurEn}
             disabled={saving}
             autoFocus
           />
@@ -163,11 +172,16 @@ export default function AddCustomerDialog({
           <span>
             {t('customerForm.nameAr')}{' '}
             <span className="field-hint">{t('customerForm.nameArHint')}</span>
+            {names.suggested === 'ar' && (
+              <> <span className="field-hint">{t('customerForm.suggested')}</span></>
+            )}
           </span>
           <input
+            className={names.suggested === 'ar' ? 'is-suggested' : undefined}
             dir="auto"
-            value={nameAr}
-            onChange={(event) => setNameAr(event.target.value)}
+            value={names.ar}
+            onChange={(event) => names.setAr(event.target.value)}
+            onBlur={names.onBlurAr}
             disabled={saving}
           />
         </label>

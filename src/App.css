@@ -459,6 +459,18 @@
   background: var(--surface);
 }
 
+/* A name the app suggested and nobody has touched yet. Dashed rather than
+   coloured: it is a draft waiting to be confirmed, not a warning. */
+.field input.is-suggested {
+  border-style: dashed;
+  border-color: var(--muted);
+}
+
+.field input.is-suggested:focus {
+  border-style: solid;
+  border-color: var(--ink);
+}
+
 /* Customer list -------------------------------------------------------- */
 
 .customer-grid {

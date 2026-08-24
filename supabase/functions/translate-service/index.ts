@@ -1,11 +1,18 @@
 // supabase/functions/translate-service/index.ts
 //
-// Translates a service name between English and Arabic.
+// Two modes, both mapping one name to its counterpart in the other script.
+//
+//   mode: 'translate'      (default) — service names. Meaning crosses over:
+//                          غسيل الردييتر ⇄ Radiator flush.
+//   mode: 'transliterate'  — customer names. Sound crosses over, meaning
+//                          does not: يوسف ⇄ Yousef, never Joseph.
 //
 // Direction is detected from the input script, so the caller sends one
 // name and gets the other back. Examples are pulled from the shop's own
-// catalogue in the same category, which is what keeps the register right:
-// the model matches تيل / ترصيص / بنشر rather than inventing formal MSA.
+// rows — the catalogue for services, the customer list for names — which
+// is what keeps the register right: the model matches تيل / ترصيص / بنشر
+// rather than inventing formal MSA, and spells names the way the shop
+// already spells them.
 //
 // Deploy:
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
@@ -66,6 +73,12 @@ Deno.serve(async (req)=>{
       error: 'Bad request.'
     }, 400);
   }
+  // Absent means 'translate', so the Services flow — which sends no mode —
+  // is byte-for-byte the request it always sent.
+  const mode = body.mode ?? 'translate';
+  if (mode !== 'translate' && mode !== 'transliterate') return json({
+    error: 'Unknown mode.'
+  }, 400);
   const name = (body.name ?? '').trim();
   if (!name) return json({
     error: 'Nothing to translate.'
@@ -74,18 +87,45 @@ Deno.serve(async (req)=>{
     error: 'Name is too long.'
   }, 400);
   const toEnglish = ARABIC.test(name);
-  // ── examples from the shop's own catalogue ──────────────────────────
-  let query = supabase.from('services').select('name_en, name_ar, category_id').not('name_ar', 'is', null).limit(12);
-  if (body.categoryId) query = query.eq('category_id', body.categoryId);
-  let { data: examples } = await query;
-  // fall back to a spread across the catalogue if the category is thin
-  if (!examples || examples.length < 4) {
-    const { data: any } = await supabase.from('services').select('name_en, name_ar').not('name_ar', 'is', null).limit(12);
-    examples = any ?? [];
+  // ── examples from the shop's own rows ───────────────────────────────
+  let pairs;
+  if (mode === 'transliterate') {
+    // Names this shop already writes both ways. Whatever convention it
+    // follows — how the definite article is handled included — travels in
+    // these pairs, so the prompt never has to state a rule.
+    const { data: people } = await supabase.from('customers').select('name_en, name_ar').not('name_en', 'is', null).not('name_ar', 'is', null).neq('name_en', '').neq('name_ar', '').limit(12);
+    pairs = (people ?? []).map((c)=>`${c.name_en}  ⇄  ${c.name_ar}`).join('\n');
+  } else {
+    let query = supabase.from('services').select('name_en, name_ar, category_id').not('name_ar', 'is', null).limit(12);
+    if (body.categoryId) query = query.eq('category_id', body.categoryId);
+    let { data: examples } = await query;
+    // fall back to a spread across the catalogue if the category is thin
+    if (!examples || examples.length < 4) {
+      const { data: any } = await supabase.from('services').select('name_en, name_ar').not('name_ar', 'is', null).limit(12);
+      examples = any ?? [];
+    }
+    pairs = (examples ?? []).map((e)=>`${e.name_en}  ⇄  ${e.name_ar}`).join('\n');
   }
-  const pairs = (examples ?? []).map((e)=>`${e.name_en}  ⇄  ${e.name_ar}`).join('\n');
   // ── prompt ──────────────────────────────────────────────────────────
-  const system = [
+  // A new shop has no name pairs yet, and an examples heading with nothing
+  // under it reads as an instruction to invent some.
+  const examplesBlock = pairs ? [
+    'These are names this shop already writes both ways. Match their register and their spelling conventions — including how they handle the Arabic definite article. Infer the convention from these pairs; do not apply a rule of your own:',
+    pairs,
+    ''
+  ] : [];
+  const system = mode === 'transliterate' ? [
+    'You write customer names for an automotive repair shop in Amman, Jordan in the other script.',
+    '',
+    toEnglish ? 'Write the Arabic name in Latin letters.' : 'Write the English name in Arabic letters.',
+    '',
+    'Transliterate the sound. Do not translate the meaning: يوسف is Yousef, never Joseph. عبد الرحمن is a name, not a phrase to be rendered into English words. A person\'s name is spelled in another script, never looked up.',
+    'Plain letters only — no academic transliteration marks. No macrons, no dots under letters, no ʿ or ʾ for ع and ء.',
+    '',
+    ...examplesBlock,
+    'Reply with the one name only. No quotes, no explanation, no alternative spellings.',
+    'If the input is not a person\'s name, reply exactly: UNCLEAR'
+  ].join('\n') : [
     'You translate service names for an automotive repair shop in Amman, Jordan.',
     '',
     toEnglish ? 'Translate the Arabic name into English. Use the plain trade English a workshop would print on an invoice — "Radiator flush", not "Radiator washing".' : 'Translate the English name into Arabic. Use the vernacular a Jordanian mechanic actually says — تيل for brake pads, ترصيص for balancing, بنشر for a puncture, ردييتر for a radiator. Not formal MSA coinages.',

@@ -173,6 +173,7 @@ export const ar: Catalogue = {
   'customerForm.nameEnHint': 'يكفي أحد الاسمين',
   'customerForm.nameAr': 'الاسم بالعربية',
   'customerForm.nameArHint': 'يكفي أحد الاسمين',
+  'customerForm.suggested': 'مقترح',
   'customerForm.phone': 'رقم الهاتف',
   'customerForm.phoneHint': 'مطلوب لإرسال التذكيرات',
   'customerForm.phonePlaceholder': '079 000 0000',

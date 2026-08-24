@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import { useLookup } from '../lib/useLookup'
+import { useCustomerNames } from '../lib/useCustomerNames'
 import Dialog from './Dialog'
 import { t } from '../lib/i18n'
 import LookupSelect from './LookupSelect'
@@ -18,8 +19,14 @@ export default function EditCustomerDialog({
   onClose: () => void
   onSaved: (customer: Customer) => void
 }) {
-  const [nameEn, setNameEn] = useState(customer.name_en ?? '')
-  const [nameAr, setNameAr] = useState(customer.name_ar ?? '')
+  // Both names already on file means someone wrote them. Suggesting over a
+  // hand correction — clear one half, tab out, watch it come back — would
+  // undo the edit that was the point of opening this dialog.
+  const names = useCustomerNames({
+    initialEn: customer.name_en ?? '',
+    initialAr: customer.name_ar ?? '',
+    suggest: !(customer.name_en?.trim() && customer.name_ar?.trim()),
+  })
   const [phone, setPhone] = useState(customer.phone ?? '')
   const [optIn, setOptIn] = useState(customer.whatsapp_opt_in)
   const [isPeriodic, setIsPeriodic] = useState(customer.is_periodic)
@@ -33,8 +40,8 @@ export default function EditCustomerDialog({
     event.preventDefault()
 
     const trimmed = {
-      nameEn: nameEn.trim(),
-      nameAr: nameAr.trim(),
+      nameEn: names.en.trim(),
+      nameAr: names.ar.trim(),
       phone: phone.trim(),
     }
 
@@ -68,6 +75,7 @@ export default function EditCustomerDialog({
       return
     }
 
+    names.accept()
     onSaved(data)
   }
 
@@ -78,10 +86,15 @@ export default function EditCustomerDialog({
           <span>
             {t('customerForm.nameEn')}{' '}
             <span className="field-hint">{t('customerForm.nameEnHint')}</span>
+            {names.suggested === 'en' && (
+              <> <span className="field-hint">{t('customerForm.suggested')}</span></>
+            )}
           </span>
           <input
-            value={nameEn}
-            onChange={(event) => setNameEn(event.target.value)}
+            className={names.suggested === 'en' ? 'is-suggested' : undefined}
+            value={names.en}
+            onChange={(event) => names.setEn(event.target.value)}
+            onBlur={names.onBlurEn}
             disabled={saving}
             autoFocus
           />
@@ -91,11 +104,16 @@ export default function EditCustomerDialog({
           <span>
             {t('customerForm.nameAr')}{' '}
             <span className="field-hint">{t('customerForm.nameArHint')}</span>
+            {names.suggested === 'ar' && (
+              <> <span className="field-hint">{t('customerForm.suggested')}</span></>
+            )}
           </span>
           <input
+            className={names.suggested === 'ar' ? 'is-suggested' : undefined}
             dir="auto"
-            value={nameAr}
-            onChange={(event) => setNameAr(event.target.value)}
+            value={names.ar}
+            onChange={(event) => names.setAr(event.target.value)}
+            onBlur={names.onBlurAr}
             disabled={saving}
           />
         </label>

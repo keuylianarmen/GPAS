@@ -6,20 +6,28 @@ export type TranslationResult =
   | { translation: string; direction: string | null }
   | { error: string }
 
+type RequestBody = {
+  name: string
+  categoryId?: number
+  mode?: 'transliterate'
+}
+
 /**
- * Asks the translate-service edge function for the other-language name.
- * `invoke` attaches the session token, which the function requires.
+ * One call to the translate-service edge function. `invoke` attaches the
+ * session token, which the function requires.
  *
- * The caller decides what to do with the suggestion — nothing here writes it
- * anywhere. These names reach customers in reminders, so a translation is
- * always something a person has seen and accepted.
+ * The caller decides what to do with the answer — nothing here writes it
+ * anywhere. These names reach customers in reminders, so a machine-produced
+ * name is always something a person has seen and accepted.
  */
-export async function translateServiceName(
-  name: string,
-  categoryId: number,
+async function callTranslateService(
+  body: RequestBody,
+  emptyMessage: string,
+  timeout?: number,
 ): Promise<TranslationResult> {
   const { data, error } = await supabase.functions.invoke('translate-service', {
-    body: { name, categoryId },
+    body,
+    timeout,
   })
 
   if (error) {
@@ -51,7 +59,7 @@ export async function translateServiceName(
     typeof payload.translation !== 'string' ||
     payload.translation.trim() === ''
   ) {
-    return { error: t('serviceForm.translateEmpty') }
+    return { error: emptyMessage }
   }
 
   const direction =
@@ -60,4 +68,50 @@ export async function translateServiceName(
       : null
 
   return { translation: payload.translation.trim(), direction }
+}
+
+/**
+ * Asks for the other-language name of a service. Meaning crosses over here —
+ * غسيل الردييتر is a radiator flush — which is what makes this the wrong call
+ * for a person's name.
+ */
+export async function translateServiceName(
+  name: string,
+  categoryId: number,
+): Promise<TranslationResult> {
+  return callTranslateService({ name, categoryId }, t('serviceForm.translateEmpty'))
+}
+
+/**
+ * A blur in a form is not worth waiting on. Six seconds is long enough for the
+ * round trip and short enough that nobody watches an empty field wondering.
+ */
+const SUGGEST_TIMEOUT_MS = 6000
+
+/**
+ * The other spelling of a customer's name, or null when there isn't one to
+ * offer. Every failure — refused, unreachable, slow, nonsense reply — is null
+ * on purpose: this is a suggestion, and the form has to save either way.
+ *
+ * Transliteration, not translation. يوسف is Yousef, not Joseph.
+ */
+export async function suggestCustomerName(name: string): Promise<string | null> {
+  try {
+    const result = await callTranslateService(
+      { name, mode: 'transliterate' },
+      // Console only. Nothing about a missing suggestion is worth a message
+      // in the form, so this never reaches a screen.
+      'the function returned no name',
+      SUGGEST_TIMEOUT_MS,
+    )
+
+    if ('error' in result) {
+      console.warn('No name suggestion for', name, '—', result.error)
+      return null
+    }
+    return result.translation
+  } catch (thrown) {
+    console.warn('No name suggestion for', name, '—', thrown)
+    return null
+  }
 }
