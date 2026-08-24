@@ -560,16 +560,13 @@ function CustomerDetail({
           return (
             <div className={`flag flag--block flag--${problem}`}>
               <div className="flag-title">{t(CONTACT_PROBLEM_LABELS[problem])}</div>
-              <div className="flag-detail">
+              <div className="flag-detail figures" dir="auto">
                 {health?.failed_sends ? (
                   <>
                     {tn(health.failed_sends, 'detail.failedAttempts')}
                     {health.last_failure
-                      ? t('detail.lastOn')
+                      ? t('detail.lastOn', { date: health.last_failure.slice(0, 10) })
                       : t('detail.noFailureYet')}
-                    {health.last_failure && (
-                      <span className="num">{health.last_failure.slice(0, 10)}</span>
-                    )}
                   </>
                 ) : (
                   t('detail.noFailures')
@@ -735,9 +732,8 @@ function CustomerDetail({
                         t('detail.unknownService')
                       )}
                     </div>
-                    <div className="list-row-meta">
-                      {t('detail.mutedOn')}{' '}
-                      <span className="num">{mute.muted_at?.slice(0, 10)}</span>
+                    <div className="list-row-meta figures" dir="auto">
+                      {t('detail.mutedOn', { date: mute.muted_at?.slice(0, 10) ?? '' })}
                       {mute.reason ? ` · ${mute.reason}` : ''}
                     </div>
                   </div>

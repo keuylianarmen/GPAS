@@ -149,7 +149,7 @@ export const en = {
   'odoHint.none': 'No odometer reading on this job or its vehicle.',
   'odoHint.onJob': 'on this job',
   'odoHint.onVehicle': 'on the vehicle',
-  'odoHint.nowAt': 'Now at',
+  'odoHint.nowAt': 'Now at {km} km',
 
   // ── mutes ──────────────────────────────────────────────────────────────
   'mute.title': 'Mute reminders',
@@ -318,7 +318,7 @@ export const en = {
   'stats.lapsed': 'Lapsed customers',
   'stats.lapsedNote': 'by lifetime revenue · not period-scoped',
   'stats.noLapsed': 'No lapsed customers.',
-  'stats.daysSince': 'days since',
+  'stats.daysSince': '{count} days since',
   // ── customers screen ───────────────────────────────────────────────────
   'customers.loading': 'Loading customers…',
   'customers.loadFailed': 'Could not load customers.',
@@ -345,7 +345,7 @@ export const en = {
   'detail.periodic': 'Regular schedule',
   'detail.failedAttempts.one': '{count} failed attempt',
   'detail.failedAttempts.other': '{count} failed attempts',
-  'detail.lastOn': ', last on ',
+  'detail.lastOn': ', last on {date}',
   'detail.noFailureYet': '. No failure recorded yet.',
   'detail.noFailures': 'No failed attempts recorded.',
   'detail.historyFailed': 'Could not load this customer\u2019s history.',
@@ -367,7 +367,7 @@ export const en = {
     'A mute silences one kind of message. It is separate from the WhatsApp opt-in above, which is consent to be contacted at all.',
   'detail.nothingMuted': 'Nothing muted.',
   'detail.allReminders': 'All reminders',
-  'detail.mutedOn': 'Muted',
+  'detail.mutedOn': 'Muted {date}',
   'detail.unmute': 'Unmute',
   'detail.unmuting': 'Unmuting…',
   // ── reminders screen ───────────────────────────────────────────────────
@@ -441,7 +441,7 @@ export const en = {
   'jobEdit.unknownService': 'Unknown',
   'jobEdit.chooseService': 'Choose a service',
   'jobEdit.chooseServiceHint': 'Choose a service — this line will be skipped otherwise.',
-  'jobEdit.subcontracted': 'Subcontracted to',
+  'jobEdit.subcontracted': 'Subcontracted to {name}',
   'jobEdit.nextDueAt': 'Next due at',
   'jobEdit.nextDueBy': 'Next due by',
   'jobEdit.noReminderBlank': 'Both due fields are empty, so this line carries no reminder.',

@@ -525,9 +525,8 @@ export default function Stats({
                 <div className="num list-row-amount">
                   {money(row.lifetime_revenue)}
                 </div>
-                <div className="list-row-meta">
-                  <span className="num">{km(row.days_since_last ?? 0)}</span>{' '}
-                  {t('stats.daysSince')}
+                <div className="list-row-meta figures" dir="auto">
+                  {t('stats.daysSince', { count: km(row.days_since_last ?? 0) })}
                 </div>
               </div>
             </button>

@@ -888,8 +888,8 @@ function JobDialog({
               )}
 
               {draft.subcontractor && (
-                <p className="line-sub">
-                  {t('jobEdit.subcontracted')} <strong>{draft.subcontractor}</strong>
+                <p className="line-sub" dir="auto">
+                  {t('jobEdit.subcontracted', { name: draft.subcontractor })}
                 </p>
               )}
 

@@ -29,9 +29,10 @@ export default function OdometerHint({
 
   return (
     <span className="odo-hint">
-      {t('odoHint.nowAt')}{' '}
-      <span className="num">
-        {km(reference.value)} {t('common.km')}
+      {/* A phrase carrying a figure, not a bare figure: .figures with dir auto,
+          so the unit stays attached to its number in Arabic. */}
+      <span className="figures" dir="auto">
+        {t('odoHint.nowAt', { km: km(reference.value) })}
       </span>{' '}
       {reference.source === 'job' ? t('odoHint.onJob') : t('odoHint.onVehicle')}
       {gap !== null && (
