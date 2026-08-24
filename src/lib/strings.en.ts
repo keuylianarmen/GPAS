@@ -181,6 +181,8 @@ export const en = {
   'customerForm.nameAr': 'Name in Arabic',
   'customerForm.nameArHint': 'either name is enough',
   'customerForm.nameArPlaceholder': 'يوسف حداد',
+  'customerForm.findingEn': 'Finding the English spelling\u2026',
+  'customerForm.findingAr': 'Finding the Arabic spelling\u2026',
   'customerForm.movedHere': 'moved here',
   'customerForm.phone': 'Phone',
   'customerForm.phoneHint': 'needed for reminders',

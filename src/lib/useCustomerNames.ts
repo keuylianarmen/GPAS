@@ -15,6 +15,8 @@ export type CustomerNames = {
   setAr: (next: string) => void
   /** 'suggested' — the app wrote it. 'moved' — the user wrote it, elsewhere. */
   markOf: (field: Field) => FieldMark
+  /** The field a reply is on its way to, while it is on its way. */
+  pending: Field | null
   onBlurEn: () => void
   onBlurAr: () => void
   /** Call once the names are committed — a saved name carries no mark. */
@@ -55,6 +57,7 @@ export function useCustomerNames({
   const [ar, setArState] = useState(initialAr)
   const [suggested, setSuggested] = useState<Field | null>(null)
   const [moved, setMoved] = useState<Field | null>(null)
+  const [pending, setPending] = useState<Field | null>(null)
 
   // Only the newest request may write. Every manual edit and every move bumps
   // it too, so a reply that was already in flight when the fields changed
@@ -75,12 +78,16 @@ export function useCustomerNames({
     request.current += 1
     setEnState(next)
     clearMarks('en')
+    // Any edit invalidates whatever is in flight, so nothing is waiting on a
+    // reply any more — whichever field was showing that.
+    setPending(null)
   }
 
   function setAr(next: string) {
     request.current += 1
     setArState(next)
     clearMarks('ar')
+    setPending(null)
   }
 
   function write(field: Field, value: string) {
@@ -179,14 +186,20 @@ export function useCustomerNames({
     }
 
     const token = ++request.current
+    setPending(target)
     trace('asking for the other spelling', { typed, belongsIn, target, token })
 
     suggestCustomerName(typed).then((suggestion) => {
+      const superseded = token !== request.current
+      // A newer request owns the pending field by now; clearing it here would
+      // switch off an indicator that belongs to a call still running.
+      if (!superseded) setPending(null)
+
       if (!suggestion) {
         trace('no suggestion came back', { typed, token })
         return
       }
-      if (token !== request.current) {
+      if (superseded) {
         trace('suggestion dropped: the fields changed while it was in flight', {
           typed,
           token,
@@ -209,11 +222,13 @@ export function useCustomerNames({
     setAr,
     markOf: (field) =>
       suggested === field ? 'suggested' : moved === field ? 'moved' : null,
+    pending,
     onBlurEn: () => ask('en'),
     onBlurAr: () => ask('ar'),
     accept: () => {
       setSuggested(null)
       setMoved(null)
+      setPending(null)
     },
   }
 }

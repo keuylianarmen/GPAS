@@ -178,6 +178,8 @@ export const ar: Catalogue = {
   'customerForm.nameAr': 'الاسم بالعربية',
   'customerForm.nameArHint': 'يكفي أحد الاسمين',
   'customerForm.nameArPlaceholder': 'يوسف حداد',
+  'customerForm.findingEn': 'جارٍ إيجاد الاسم بالإنجليزية…',
+  'customerForm.findingAr': 'جارٍ إيجاد الاسم بالعربية…',
   'customerForm.movedHere': 'نُقل إلى هنا',
   'customerForm.phone': 'رقم الهاتف',
   'customerForm.phoneHint': 'مطلوب لإرسال التذكيرات',

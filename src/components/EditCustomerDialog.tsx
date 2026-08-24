@@ -102,7 +102,14 @@ export default function EditCustomerDialog({
             value={names.en}
             onChange={(event) => names.setEn(event.target.value)}
             onBlur={names.onBlurEn}
-            placeholder={t('customerForm.nameEnPlaceholder')}
+            // The example name would read as a value while the real one is on
+            // its way, so the slot it occupies is where the wait belongs.
+            placeholder={
+              names.pending === 'en'
+                ? t('customerForm.findingEn')
+                : t('customerForm.nameEnPlaceholder')
+            }
+            aria-busy={names.pending === 'en'}
             disabled={saving}
           />
         </label>
@@ -123,7 +130,14 @@ export default function EditCustomerDialog({
             value={names.ar}
             onChange={(event) => names.setAr(event.target.value)}
             onBlur={names.onBlurAr}
-            placeholder={t('customerForm.nameArPlaceholder')}
+            // The example name would read as a value while the real one is on
+            // its way, so the slot it occupies is where the wait belongs.
+            placeholder={
+              names.pending === 'ar'
+                ? t('customerForm.findingAr')
+                : t('customerForm.nameArPlaceholder')
+            }
+            aria-busy={names.pending === 'ar'}
             disabled={saving}
           />
         </label>
