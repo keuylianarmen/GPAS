@@ -48,6 +48,21 @@
   height: 30px;
 }
 
+/*
+ * The header brand is a control; Login keeps the plain .brand, which is not.
+ * Negative inline margin widens the tap target without moving anything — below
+ * the breakpoint the wordmark is hidden and the mark alone is only ~24px wide.
+ */
+.brand-home {
+  padding-inline: 8px;
+  margin-inline: -8px;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
 .brand--login {
   justify-content: center;
   padding: 0 0 18px;

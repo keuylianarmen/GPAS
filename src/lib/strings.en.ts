@@ -15,6 +15,7 @@ export const en = {
   // ── shell ─────────────────────────────────────────────────────────────
   'nav.sections': 'Sections',
   'nav.menu': 'Menu',
+  'nav.brandHome': 'GRAND PRIX \u2014 Dashboard',
   'nav.dashboard': 'Dashboard',
   'nav.newJob': 'New job',
   'nav.jobs': 'Jobs',

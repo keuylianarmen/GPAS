@@ -18,6 +18,7 @@ export const ar: Catalogue = {
   // ── shell ─────────────────────────────────────────────────────────────
   'nav.sections': 'الأقسام',
   'nav.menu': 'القائمة',
+  'nav.brandHome': 'GRAND PRIX — الرئيسية',
   'nav.dashboard': 'الرئيسية',
   'nav.newJob': 'أمر عمل جديد',
   'nav.jobs': 'أوامر العمل',

@@ -160,10 +160,20 @@ function Shell({ staff }: { staff: Staff }) {
             <span aria-hidden="true">☰</span>
           </button>
 
-          <div className="brand">
-            <img className="brand-logo" src="/logo-dark.svg" alt={t('brand.alt')} />
+          {/* A button, not a link: navigation here is state, there is no router
+              and no URL to point at. It also means a click cannot scroll, which
+              an <a href="#"> would. */}
+          <button
+            type="button"
+            className="brand brand-home"
+            onClick={() => setTab('dashboard')}
+            aria-label={t('nav.brandHome')}
+          >
+            {/* Decorative: the button carries the name, so alt text here would
+                only say it twice. */}
+            <img className="brand-logo" src="/logo-dark.svg" alt="" />
             <span className="wordmark">{t('brand.name')}</span>
-          </div>
+          </button>
 
           {/* Sections of the app, not tabs within a panel — so these are links
               in spirit, and skip the arrow-key semantics of a real tablist. */}
