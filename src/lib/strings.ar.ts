@@ -17,6 +17,7 @@ import type { Catalogue } from './strings'
 export const ar: Catalogue = {
   // ── shell ─────────────────────────────────────────────────────────────
   'nav.sections': 'الأقسام',
+  'nav.menu': 'القائمة',
   'nav.dashboard': 'الرئيسية',
   'nav.newJob': 'أمر عمل جديد',
   'nav.jobs': 'أوامر العمل',

@@ -116,6 +116,168 @@
   padding: 24px 20px 60px;
 }
 
+/* Narrow header ------------------------------------------------------- */
+
+/*
+ * Above the breakpoint nothing here applies and the header is exactly the tab
+ * row it has always been. 1000px is measured, not guessed: brand (~130) plus
+ * seven English tabs (~600) plus the identity block (~245) plus two 20px gaps
+ * plus 40px of padding is ~1035, so the row starts wrapping just under 1000.
+ * Switching there means the tabs are never shown in a wrapped state.
+ */
+.menu-button,
+.new-job-shortcut {
+  display: none;
+}
+
+@media (max-width: 1000px) {
+  .tabs {
+    display: none;
+  }
+
+  .topbar-inner {
+    gap: 12px;
+  }
+
+  .menu-button,
+  .new-job-shortcut {
+    display: inline-flex;
+  }
+
+  .menu-button {
+    align-items: center;
+    padding: 10px 12px;
+    font-size: 18px;
+    line-height: 1;
+    color: #fff;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* The mark alone identifies the shop; the wordmark is the first thing that
+     can go when the row is the scarce resource. */
+  .wordmark {
+    display: none;
+  }
+
+  .new-job-shortcut {
+    margin-inline-start: auto;
+  }
+
+  /* Already pushed by the shortcut above it, and the name would eat the row. */
+  .topbar-identity {
+    margin-inline-start: 0;
+  }
+
+  .topbar-name {
+    display: none;
+  }
+
+  .topbar-identity .btn {
+    display: none;
+  }
+}
+
+/* Section drawer ------------------------------------------------------- */
+
+/*
+ * A <dialog> pinned to the inline-start edge: left in English, right in
+ * Arabic, with no direction named anywhere. Overrides the centring a modal
+ * dialog does by default.
+ */
+.drawer {
+  max-inline-size: 300px;
+  inline-size: 82vw;
+  max-block-size: none;
+  block-size: 100%;
+  margin: 0;
+  margin-inline-end: auto;
+  padding: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border: none;
+}
+
+.drawer::backdrop {
+  background: rgb(26 28 29 / 45%);
+}
+
+.drawer-panel {
+  display: flex;
+  block-size: 100%;
+  flex-direction: column;
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-block-end: 1px solid var(--hairline);
+}
+
+.drawer-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.drawer-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.drawer-link {
+  display: block;
+  inline-size: 100%;
+  /* Carried by every link so the current one does not shift the others when
+     it takes the marker. A border rather than an inset shadow because
+     border-inline-start mirrors on its own; box-shadow has no logical form. */
+  border-inline-start: 2px solid transparent;
+  padding: 12px 12px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  text-align: start;
+  background: none;
+  border-block: none;
+  border-inline-end: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.drawer-link:hover {
+  background: var(--card);
+}
+
+/* The same crimson marker the tab row uses, turned to run down the side. */
+.drawer-link[aria-current='page'] {
+  font-weight: 600;
+  background: var(--card);
+  border-inline-start-color: var(--crimson);
+}
+
+.drawer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-block-start: 1px solid var(--hairline);
+}
+
+.drawer-name {
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Shared surfaces ---------------------------------------------------- */
 
 .card {

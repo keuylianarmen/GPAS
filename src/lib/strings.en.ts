@@ -14,6 +14,7 @@
 export const en = {
   // ── shell ─────────────────────────────────────────────────────────────
   'nav.sections': 'Sections',
+  'nav.menu': 'Menu',
   'nav.dashboard': 'Dashboard',
   'nav.newJob': 'New job',
   'nav.jobs': 'Jobs',

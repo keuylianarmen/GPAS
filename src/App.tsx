@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import NavDrawer from './components/NavDrawer'
 import Login from './Login'
 import Customers from './Customers'
 import NewJob from './NewJob'
@@ -129,6 +130,7 @@ function Shell({ staff }: { staff: Staff }) {
   // Subscribes the whole tree to the language, so every t() below re-resolves.
   useLocale()
   const [tab, setTab] = useState<Tab>(() => readStoredTab() ?? 'dashboard')
+  const [menuOpen, setMenuOpen] = useState(false)
   // Set when a screen links straight to one customer; cleared once opened.
   const [focusCustomerId, setFocusCustomerId] = useState<string | null>(null)
 
@@ -146,6 +148,18 @@ function Shell({ staff }: { staff: Staff }) {
     <div className="shell">
       <div className="topbar">
         <div className="topbar-inner">
+          {/* Below the breakpoint this is the whole nav; above it, it is
+              display:none and the tab row takes over. */}
+          <button
+            type="button"
+            className="menu-button"
+            onClick={() => setMenuOpen(true)}
+            aria-label={t('nav.menu')}
+            aria-expanded={menuOpen}
+          >
+            <span aria-hidden="true">☰</span>
+          </button>
+
           <div className="brand">
             <img className="brand-logo" src="/logo-dark.svg" alt={t('brand.alt')} />
             <span className="wordmark">{t('brand.name')}</span>
@@ -167,6 +181,17 @@ function Shell({ staff }: { staff: Staff }) {
             ))}
           </nav>
 
+          {/* The one action worth a tap of its own. Hidden above the
+              breakpoint, where the tab row already carries it. */}
+          <button
+            type="button"
+            className="btn btn--onDark btn--small new-job-shortcut"
+            aria-current={tab === 'new-job' ? 'page' : undefined}
+            onClick={() => setTab('new-job')}
+          >
+            {t('nav.newJob')}
+          </button>
+
           <div className="topbar-identity">
             <LanguageToggle />
             <span className="topbar-name" dir="auto">
@@ -176,6 +201,34 @@ function Shell({ staff }: { staff: Staff }) {
           </div>
         </div>
       </div>
+
+      <NavDrawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        footer={
+          <>
+            <span className="drawer-name" dir="auto">
+              {localised(staff.name_en, staff.name_ar)}
+            </span>
+            <SignOutButton className="btn btn--ghost btn--small" />
+          </>
+        }
+      >
+        {TABS.map(({ key, labelKey }) => (
+          <button
+            key={key}
+            type="button"
+            className="drawer-link"
+            aria-current={tab === key ? 'page' : undefined}
+            onClick={() => {
+              setTab(key)
+              setMenuOpen(false)
+            }}
+          >
+            {t(labelKey)}
+          </button>
+        ))}
+      </NavDrawer>
 
       <main className="workspace">
         {tab === 'services' ? (
