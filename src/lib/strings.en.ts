@@ -129,6 +129,7 @@ export const en = {
   'vehicleForm.odometerPlaceholder': '84210',
   'vehicleForm.addMake': 'Add a make',
   'vehicleForm.modelSuggestions': 'Model suggestions',
+  'vehicleForm.loadingModels': 'Finding this make\u2019s models\u2026',
   'vehicleForm.newTitle': 'New vehicle',
   'vehicleForm.editTitle': 'Edit vehicle',
   'vehicleForm.save': 'Save vehicle',

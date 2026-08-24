@@ -129,6 +129,7 @@ export const ar: Catalogue = {
   'vehicleForm.odometerPlaceholder': '84210',
   'vehicleForm.addMake': '+ إضافة ماركة',
   'vehicleForm.modelSuggestions': 'اقتراحات الطراز',
+  'vehicleForm.loadingModels': 'جارٍ جلب طرازات هذه الماركة…',
   'vehicleForm.newTitle': 'مركبة جديدة',
   'vehicleForm.editTitle': 'تعديل المركبة',
   'vehicleForm.save': 'حفظ المركبة',

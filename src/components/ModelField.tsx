@@ -30,7 +30,7 @@ export default function ModelField({
   disabled?: boolean
 }) {
   const own = useVehicleModels(make)
-  const catalogue = useModelCatalog(make)
+  const { models: catalogue, loading } = useModelCatalog(make)
   const listId = useId()
 
   const [open, setOpen] = useState(false)
@@ -50,6 +50,10 @@ export default function ModelField({
   )
 
   const showing = open && matches.length > 0
+  // Only while there is genuinely nothing to show. With the shop's own models
+  // already in the list, saying "finding models" would be noise about a list
+  // that is already useful.
+  const waiting = loading && matches.length === 0
 
   function pick(model: string) {
     onChange(model)
@@ -99,6 +103,8 @@ export default function ModelField({
         aria-autocomplete="list"
         autoComplete="off"
       />
+
+      {waiting && <p className="typeahead-note">{t('vehicleForm.loadingModels')}</p>}
 
       {showing && (
         <ul className="typeahead-list" id={listId} role="listbox" aria-label={t('vehicleForm.modelSuggestions')}>

@@ -83,17 +83,6 @@ async function modelCatalogue(apiKey, supabase, make, staffId) {
   if (reply === null) return json({
     error: 'The model list could not be fetched.'
   }, 502);
-  // TEMPORARY DIAGNOSTIC — remove once the catalogue is confirmed working.
-  console.log('[catalogue] raw reply', JSON.stringify({
-    make,
-    stop_reason: reply.stopReason,
-    stop_details: reply.stopDetails,
-    served_by: reply.servedBy,
-    block_types: reply.blockTypes,
-    usage: reply.usage,
-    text_length: reply.text.length,
-    text: reply.text
-  }));
   // A refusal that even the fallback did not rescue. Distinct from an empty
   // reply: nothing was generated and nothing will be by retrying the same
   // request, but it is still not an answer about this make's lineup.
@@ -114,21 +103,25 @@ async function modelCatalogue(apiKey, supabase, make, staffId) {
     console.error('[catalogue] no text block in the reply', {
       make,
       stop_reason: reply.stopReason,
-      block_types: reply.blockTypes
+      block_types: reply.blockTypes,
+      served_by: reply.servedBy,
+      usage: reply.usage
     });
     return json({
       error: 'The model list came back empty.'
     }, 502);
   }
   const { models, rejected } = parseModelLines(reply.text);
-  // TEMPORARY DIAGNOSTIC — remove once the catalogue is confirmed working.
-  console.log('[catalogue] parsed', JSON.stringify({
-    make,
-    accepted: models.length,
-    accepted_names: models.map((m)=>m.name_en),
-    rejected: rejected.length,
-    rejections: rejected
-  }));
+  // Kept: a lineup that parsed to nothing is worth a line, and the reasons
+  // are how a format drift is spotted without redeploying to find out.
+  if (models.length === 0 || rejected.length > 0) {
+    console.warn('[catalogue] lines dropped', {
+      make,
+      accepted: models.length,
+      rejected: rejected.length,
+      rejections: rejected
+    });
+  }
   // A write needs the service role: there is no client insert policy on
   // either table, by design.
   const admin = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));

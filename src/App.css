@@ -468,6 +468,14 @@
   inline-size: 100%;
 }
 
+/* Sits under the field without displacing it: the input stays exactly where
+   it was, so nothing moves under the cursor mid-typing. */
+.typeahead-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .typeahead-list {
   position: absolute;
   inset-block-start: calc(100% + 4px);
