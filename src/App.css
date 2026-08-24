@@ -14,7 +14,10 @@
 .topbar-inner {
   display: flex;
   align-items: center;
-  gap: 28px;
+  /* Seven English tabs, the brand and the identity block only just fit the
+     1080px page. The gap is the cheapest place to find room — narrowing it
+     costs nothing legible, where a smaller tab label would. */
+  gap: 20px;
   flex-wrap: wrap;
   max-width: var(--page);
   margin: 0 auto;
@@ -63,7 +66,10 @@
 }
 
 .tab {
-  padding: 16px 14px;
+  /* 10px rather than 14px: seven tabs turn every horizontal pixel here into
+     56 across the row. Vertical padding is untouched, so the hit target keeps
+     its height. */
+  padding: 16px 10px;
   font-size: 14px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.6);
@@ -94,6 +100,12 @@
 .topbar-name {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.85);
+  /* The only variable-width thing in the bar, so it is the only thing that can
+     push the row over. Long names ellipsize instead of wrapping the nav. */
+  max-inline-size: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace {
