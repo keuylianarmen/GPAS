@@ -265,7 +265,7 @@ export default function Jobs({
               setJobsReady(false)
             }}
           >
-            {t('jobs.clearFilters')}
+            {t('common.clearFilters')}
           </button>
         )}
 

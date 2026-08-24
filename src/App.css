@@ -330,6 +330,15 @@
   border-radius: var(--radius);
 }
 
+/* Where the state carries a way out as well as an explanation. */
+.empty p {
+  margin: 0;
+}
+
+.empty .btn {
+  margin-block-start: 12px;
+}
+
 .notice {
   display: flex;
   flex-direction: column;

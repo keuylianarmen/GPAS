@@ -11,9 +11,14 @@ import type { MutableService } from './components/MuteDialog'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
 import { useLookup } from './lib/useLookup'
 import { vehicleLabel } from './lib/vehicle'
-import { CONTACT_PROBLEM_LABELS, contactProblem } from './lib/contactHealth'
+import {
+  CONTACT_FILTERS,
+  CONTACT_PROBLEM_LABELS,
+  contactProblem,
+  matchesContactFilter,
+} from './lib/contactHealth'
 import { localised, t, tn } from './lib/i18n'
-import type { ContactHealth } from './lib/contactHealth'
+import type { ContactFilter, ContactHealth } from './lib/contactHealth'
 
 type Customer = Database['public']['Tables']['customers']['Row']
 type Vehicle = Database['public']['Tables']['vehicles']['Row']
@@ -50,6 +55,7 @@ export default function Customers({
 
   const [query, setQuery] = useState('')
   const [makeFilter, setMakeFilter] = useState('')
+  const [contactFilter, setContactFilter] = useState<ContactFilter>('')
   // Display only. v_fleet_by_make aggregates vehicles.make, which holds the
   // English label and nothing else, so the Arabic name has to come back from
   // the lookup list the label was picked from.
@@ -172,10 +178,19 @@ export default function Customers({
       customers.filter(
         (customer) =>
           matchesCustomerSearch(customer, query) &&
-          (!makeFilter || makesByCustomer.get(customer.id)?.has(makeFilter) === true),
+          (!makeFilter || makesByCustomer.get(customer.id)?.has(makeFilter) === true) &&
+          matchesContactFilter(health.get(customer.id), contactFilter),
       ),
-    [customers, query, makeFilter, makesByCustomer],
+    [customers, query, makeFilter, contactFilter, makesByCustomer, health],
   )
+
+  const filtering = Boolean(query.trim() || makeFilter || contactFilter)
+
+  function clearFilters() {
+    setQuery('')
+    setMakeFilter('')
+    setContactFilter('')
+  }
 
   // Keyed on label_en because that is what vehicles.make stores. Locale is
   // applied at render rather than baked in here, so switching language does
@@ -242,6 +257,21 @@ export default function Customers({
             ))}
           </select>
         </label>
+        <label className="field toolbar-field">
+          <span>{t('customers.contact')}</span>
+          <select
+            value={contactFilter}
+            onChange={(event) =>
+              setContactFilter(event.target.value as ContactFilter)
+            }
+          >
+            {CONTACT_FILTERS.map(({ value, labelKey }) => (
+              <option key={value || 'any'} value={value}>
+                {t(labelKey)}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           className="btn btn--dark toolbar-action"
@@ -254,16 +284,21 @@ export default function Customers({
       {customers.length === 0 ? (
         <p className="empty">{t('customers.none')}</p>
       ) : visible.length === 0 ? (
-        <p className="empty">
-          {makeFilter && !query.trim()
-            ? t('customers.noneWithMake', { make: makeLabel(makeFilter) })
-            : makeFilter
-              ? t('customers.noMakeMatch', {
-                  make: makeLabel(makeFilter),
-                  query: query.trim(),
-                })
-              : t('customers.noMatch', { query: query.trim() })}
-        </p>
+        <div className="empty">
+          {/* Three filters is eight combinations; naming each in prose was
+              already awkward with two. The way out is more use than the
+              sentence. */}
+          <p>{t('customers.noneMatch')}</p>
+          {filtering && (
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={clearFilters}
+            >
+              {t('common.clearFilters')}
+            </button>
+          )}
+        </div>
       ) : (
         <div className="customer-grid">
           {visible.map((customer) => (
