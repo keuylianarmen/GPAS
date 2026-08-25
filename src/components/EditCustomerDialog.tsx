@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import { useLookup } from '../lib/useLookup'
-import { useCustomerNames } from '../lib/useCustomerNames'
+import { useNamePair } from '../lib/useNamePair'
 import Dialog from './Dialog'
 import { t } from '../lib/i18n'
 import LookupSelect from './LookupSelect'
@@ -22,7 +22,7 @@ export default function EditCustomerDialog({
   // Both names already on file means someone wrote them. Suggesting over a
   // hand correction — clear one half, tab out, watch it come back — would
   // undo the edit that was the point of opening this dialog.
-  const names = useCustomerNames({
+  const names = useNamePair({
     initialEn: customer.name_en ?? '',
     initialAr: customer.name_ar ?? '',
     suggest: !(customer.name_en?.trim() && customer.name_ar?.trim()),

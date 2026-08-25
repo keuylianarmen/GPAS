@@ -389,8 +389,9 @@ type ItemDraft = {
   tire: TireDraft
   /** The line's stored details, so a save preserves keys this screen does not edit. */
   details: Json
-  /** Display only for now — the line's subcontractor is not editable here. */
+  /** The name, for display; the id is what the line stores. */
   subcontractor: string | null
+  subcontractorId: string | null
 }
 
 type JobItemWithSub = JobItem & { subcontractors: { name: string } | null }
@@ -409,6 +410,7 @@ function draftFromItem(item: JobItemWithSub): ItemDraft {
     tire: tireDraftFromDetails(item.details),
     details: item.details,
     subcontractor: item.subcontractors?.name ?? null,
+    subcontractorId: item.subcontractor_id,
   }
 }
 
@@ -417,6 +419,7 @@ function sameDraft(a: ItemDraft, b: ItemDraft): boolean {
     a.partPrice === b.partPrice &&
     a.laborPrice === b.laborPrice &&
     a.subPrice === b.subPrice &&
+    a.subcontractorId === b.subcontractorId &&
     a.nextDueKm === b.nextDueKm &&
     a.nextDueDate === b.nextDueDate &&
     sameFluid(a.fluid, b.fluid) &&
@@ -550,6 +553,7 @@ function JobDialog({
         laborPrice:
           service?.default_labor_price == null ? '' : String(service.default_labor_price),
         subPrice: '',
+        subcontractorId: null,
         // Based on the job's own date, not today — the line belongs to that visit.
         ...dueDefaults(service, jobOdometer, job.start_date),
         fluid: emptyFluidDraft(),
@@ -569,6 +573,7 @@ function JobDialog({
         service?.default_labor_price == null ? '' : String(service.default_labor_price),
       partPrice: '',
       subPrice: '',
+      subcontractorId: null,
       // A different service means different consumables, so start clean.
       fluid: emptyFluidDraft(),
       tire: emptyTireDraft(),
@@ -683,6 +688,7 @@ function JobDialog({
           part_price: priceValue(draft.partPrice),
           labor_price: priceValue(draft.laborPrice),
           sub_price: priceValue(draft.subPrice),
+          subcontractor_id: draft.subcontractorId,
           next_due_odometer: dueKm === 'invalid' ? null : dueKm,
           next_due_date: draft.nextDueDate || null,
           // Merged, so keys this screen does not edit survive the save.
@@ -711,6 +717,8 @@ function JobDialog({
             part_price: priceValue(draft.partPrice),
             labor_price: priceValue(draft.laborPrice),
             sub_price: priceValue(draft.subPrice),
+            // Uniform across the array — see the note in NewJob.
+            subcontractor_id: draft.subcontractorId,
             next_due_odometer: dueKm === 'invalid' ? null : dueKm,
             next_due_date: draft.nextDueDate || null,
             status: 'done' as const,
@@ -883,6 +891,11 @@ function JobDialog({
                 partPrice={draft.partPrice}
                 laborPrice={draft.laborPrice}
                 subPrice={draft.subPrice}
+                subcontractorId={draft.subcontractorId}
+                subcontractorName={draft.subcontractor}
+                onSubcontractorChange={(id) =>
+                  updateDraft(draft.key, { subcontractorId: id })
+                }
                 disabled={saving}
                 onChange={(field, next) => updateDraft(draft.key, { [field]: next })}
               />
@@ -903,12 +916,6 @@ function JobDialog({
                   onChange={(next) => updateDraft(draft.key, { tire: next })}
                   disabled={saving}
                 />
-              )}
-
-              {draft.subcontractor && (
-                <p className="line-sub" dir="auto">
-                  {t('jobEdit.subcontracted', { name: draft.subcontractor })}
-                </p>
               )}
 
               {!draft.id && !draft.serviceId && (

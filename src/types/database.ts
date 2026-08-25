@@ -1061,27 +1061,30 @@ export type Database = {
           default_rate: number | null
           id: string
           name: string
+          name_ar: string | null
           notes: string | null
           phone: string | null
-          type: string
+          type: string | null
         }
         Insert: {
           active?: boolean
           default_rate?: number | null
           id?: string
           name: string
+          name_ar?: string | null
           notes?: string | null
           phone?: string | null
-          type: string
+          type?: string | null
         }
         Update: {
           active?: boolean
           default_rate?: number | null
           id?: string
           name?: string
+          name_ar?: string | null
           notes?: string | null
           phone?: string | null
-          type?: string
+          type?: string | null
         }
         Relationships: []
       }

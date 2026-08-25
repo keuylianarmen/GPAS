@@ -1,5 +1,6 @@
 import { money } from '../lib/format'
 import { sumPrices } from '../lib/parse'
+import SubcontractorPicker from './SubcontractorPicker'
 import { t } from '../lib/i18n'
 
 /**
@@ -11,12 +12,19 @@ export default function PriceFields({
   partPrice,
   laborPrice,
   subPrice,
+  subcontractorId,
+  subcontractorName,
+  onSubcontractorChange,
   onChange,
   disabled = false,
 }: {
   partPrice: string
   laborPrice: string
   subPrice: string
+  /** Who the sub price went to. Independent of it — either may stand alone. */
+  subcontractorId: string | null
+  subcontractorName?: string | null
+  onSubcontractorChange: (id: string | null) => void
   onChange: (field: 'partPrice' | 'laborPrice' | 'subPrice', next: string) => void
   disabled?: boolean
 }) {
@@ -41,6 +49,18 @@ export default function PriceFields({
           />
         </label>
       ))}
+
+      {/* Beside the sub price, not inside it: the money and the name are two
+          independent columns and neither implies the other. */}
+      <label className="price price--who">
+        <span>{t('price.subcontractor')}</span>
+        <SubcontractorPicker
+          value={subcontractorId}
+          name={subcontractorName}
+          onChange={onSubcontractorChange}
+          disabled={disabled}
+        />
+      </label>
 
       <div className="price price--total">
         <span>{t('price.lineTotal')}</span>

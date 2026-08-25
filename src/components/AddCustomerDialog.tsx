@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import type { Database } from '../types/database'
 import { supabase } from '../lib/supabase'
 import { customerLabel } from '../lib/customer'
-import { useCustomerNames } from '../lib/useCustomerNames'
+import { useNamePair } from '../lib/useNamePair'
 import Dialog from './Dialog'
 import { t, tn } from '../lib/i18n'
 import VehicleFields from './VehicleFields'
@@ -29,7 +29,7 @@ export default function AddCustomerDialog({
 }) {
   // A new customer has nothing typed yet, so a suggestion can never be
   // sitting on top of someone's own correction here.
-  const names = useCustomerNames({ suggest: true })
+  const names = useNamePair({ suggest: true })
   // Both marks are mutually exclusive per field: one holds what the user
   // typed, the other holds what the app suggested.
   const enMark = names.markOf('en')

@@ -1492,13 +1492,39 @@
   width: 92px;
 }
 
+/* Wider than a money field: it holds a name and an add button. */
+.price--who {
+  inline-size: 220px;
+}
+
+/* Select and add button on one line, so this column keeps the height of the
+   compact price fields beside it rather than stacking and doubling the row. */
+.price--who-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.price--who-row select {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.price--who-row .btn {
+  flex: none;
+  min-block-size: 0;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
 .price > span {
   font-size: 11px;
   font-weight: 500;
   color: var(--muted);
 }
 
-.price input {
+.price input,
+.price select {
   width: 100%;
   padding: 7px 9px;
   font-size: 13px;
@@ -1509,11 +1535,13 @@
   outline: none;
 }
 
-.price input:focus {
+.price input:focus,
+.price select:focus {
   border-color: var(--ink);
 }
 
-.price input:disabled {
+.price input:disabled,
+.price select:disabled {
   color: var(--muted);
   background: var(--surface);
 }

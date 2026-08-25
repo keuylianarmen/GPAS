@@ -46,6 +46,7 @@ type Line = {
   partPrice: string
   laborPrice: string
   subPrice: string
+  subcontractorId: string | null
   nextDueKm: string
   nextDueDate: string
   fluid: FluidDraft
@@ -273,6 +274,7 @@ export default function NewJob() {
       laborPrice:
         service?.default_labor_price == null ? '' : String(service.default_labor_price),
       subPrice: '',
+      subcontractorId: null,
       // A different service means different consumables, so start clean.
       fluid: emptyFluidDraft(),
       tire: emptyTireDraft(),
@@ -287,6 +289,7 @@ export default function NewJob() {
       partPrice: '',
       laborPrice: '',
       subPrice: '',
+      subcontractorId: null,
       nextDueKm: '',
       nextDueDate: '',
       fluid: emptyFluidDraft(),
@@ -403,6 +406,11 @@ export default function NewJob() {
             part_price: priceValue(line.partPrice),
             labor_price: priceValue(line.laborPrice),
             sub_price: priceValue(line.subPrice),
+            // Sent on every row, null where absent. postgrest-js builds the
+            // column list from the union of the array's keys and writes NULL
+            // into any row missing one — a conditional spread here caused a
+            // NOT NULL violation once already.
+            subcontractor_id: line.subcontractorId,
             next_due_odometer: dueKm === 'invalid' ? null : dueKm,
             next_due_date: line.nextDueDate || null,
             status: 'done' as const,
@@ -703,6 +711,10 @@ export default function NewJob() {
                   partPrice={line.partPrice}
                   laborPrice={line.laborPrice}
                   subPrice={line.subPrice}
+                  subcontractorId={line.subcontractorId}
+                  onSubcontractorChange={(id) =>
+                    updateLine(line.key, { subcontractorId: id })
+                  }
                   onChange={(field, next) => updateLine(line.key, { [field]: next })}
                 />
 

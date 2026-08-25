@@ -90,13 +90,13 @@ export async function translateServiceName(
 const SUGGEST_TIMEOUT_MS = 6000
 
 /**
- * The other spelling of a customer's name, or null when there isn't one to
+ * The other spelling of a person's name, or null when there isn't one to
  * offer. Every failure — refused, unreachable, slow, nonsense reply — is null
  * on purpose: this is a suggestion, and the form has to save either way.
  *
  * Transliteration, not translation. يوسف is Yousef, not Joseph.
  */
-export async function suggestCustomerName(name: string): Promise<string | null> {
+export async function suggestTransliteration(name: string): Promise<string | null> {
   try {
     const result = await callTranslateService(
       { name, mode: 'transliterate' },

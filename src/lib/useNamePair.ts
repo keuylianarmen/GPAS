@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { suggestCustomerName } from './translateService'
+import { suggestTransliteration } from './translateService'
 import { isArabicScript } from './script'
 import { makeTrace } from './suggest'
 
@@ -8,7 +8,7 @@ type Field = 'en' | 'ar'
 /** What a field is currently advertising about its own contents. */
 export type FieldMark = 'suggested' | 'moved' | null
 
-export type CustomerNames = {
+export type NamePair = {
   en: string
   ar: string
   setEn: (next: string) => void
@@ -23,11 +23,11 @@ export type CustomerNames = {
   accept: () => void
 }
 
-const trace = makeTrace('customer names')
+const trace = makeTrace('name pair')
 
 /**
- * The two name fields, with the empty one offered a transliteration of the
- * other when a field loses focus.
+ * A Latin/Arabic name pair — a customer, a subcontractor — with the empty
+ * field offered a transliteration of the other when one loses focus.
  *
  * A suggestion is never written silently. Unlike a service name, a person's
  * name is theirs, and the mapping is one-to-many — محمد is Mohammad, Mohammed,
@@ -39,7 +39,7 @@ const trace = makeTrace('customer names')
  * case, not the exception — it gets moved to the field it belongs in rather
  * than ignored.
  */
-export function useCustomerNames({
+export function useNamePair({
   initialEn = '',
   initialAr = '',
   suggest,
@@ -52,7 +52,7 @@ export function useCustomerNames({
    * would throw that correction away.
    */
   suggest: boolean
-}): CustomerNames {
+}): NamePair {
   const [en, setEnState] = useState(initialEn)
   const [ar, setArState] = useState(initialAr)
   const [suggested, setSuggested] = useState<Field | null>(null)
@@ -189,7 +189,7 @@ export function useCustomerNames({
     setPending(target)
     trace('asking for the other spelling', { typed, belongsIn, target, token })
 
-    suggestCustomerName(typed).then((suggestion) => {
+    suggestTransliteration(typed).then((suggestion) => {
       const superseded = token !== request.current
       // A newer request owns the pending field by now; clearing it here would
       // switch off an indicator that belongs to a call still running.
