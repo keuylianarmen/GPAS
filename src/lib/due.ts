@@ -157,3 +157,24 @@ export function regradeDue(
       : {}),
   }
 }
+
+/**
+ * The same patch, applied. For sweeping every line at once when something the
+ * whole job shares changes — the car's daily average is a property of the
+ * vehicle, so answering that question on one line moves the dates on all of
+ * them. A line with nothing to rewrite is returned unchanged, identity and
+ * all, so React re-renders only what actually moved.
+ */
+export function withRegradedDue<
+  T extends { nextDueKm: string; nextDueDate: string; dueMark: DueMark },
+>(line: T, due: GradeDue | null): T {
+  const patch = regradeDue(line, due)
+  // A rewrite that lands on the same value is not a change. Most of a job's
+  // lines are in that position when one figure moves, and handing React a new
+  // object for each of them would re-render the lot.
+  const moved =
+    (patch.nextDueKm !== undefined && patch.nextDueKm !== line.nextDueKm) ||
+    (patch.nextDueDate !== undefined && patch.nextDueDate !== line.nextDueDate)
+
+  return moved ? { ...line, ...patch } : line
+}

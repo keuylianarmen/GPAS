@@ -3,7 +3,13 @@ import type { Database } from './types/database'
 import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
 import { todayIso } from './lib/date'
-import { UNTOUCHED_DUE, dueDefaults, gradeDue, regradeDue } from './lib/due'
+import {
+  UNTOUCHED_DUE,
+  dueDefaults,
+  gradeDue,
+  regradeDue,
+  withRegradedDue,
+} from './lib/due'
 import type { DueMark } from './lib/due'
 import { useGradeIntervals } from './lib/useGradeIntervals'
 import { emptyFluidDraft, usesFluid } from './lib/fluid'
@@ -32,6 +38,7 @@ import VehicleFields from './components/VehicleFields'
 import {
   emptyVehicleDraft,
   isBlankVehicle,
+  saveKmPerDay,
   vehicleInsertFrom,
 } from './lib/vehicle'
 import type { VehicleDraft } from './lib/vehicle'
@@ -319,6 +326,51 @@ export default function NewJob() {
       current.map((line) => (line.key === key ? { ...line, ...patch } : line)),
     )
   }
+
+  /**
+   * A daily average answered at a line. It is the car's, so it goes to the
+   * car — every vehicle this screen can reach is already saved, including one
+   * added a moment ago, because the add dialog inserts before it returns.
+   * There is no unsaved vehicle to defer a write against.
+   */
+  async function saveVehicleUsage(id: string, next: number): Promise<string | null> {
+    const saved = await saveKmPerDay(id, next)
+    if ('error' in saved) return saved.error
+
+    setVehicleLoad((current) =>
+      current === null
+        ? current
+        : {
+            ...current,
+            rows: current.rows.map((row) => (row.id === saved.id ? saved : row)),
+          },
+    )
+
+    // Every oil line on the job runs off this figure, not just the one that
+    // asked. `next` rather than the memo: the vehicle row above has not
+    // re-rendered yet, so the memo is still holding the old average.
+    setLines((current) =>
+      current.map((line) => {
+        const service = serviceById.get(line.serviceId)
+        return withRegradedDue(
+          line,
+          gradeDue(
+            service,
+            gradeInterval(service?.fluid_grade_list ?? null, line.fluid.grade),
+            jobOdometer,
+            next,
+            todayIso(),
+          ),
+        )
+      }),
+    )
+
+    return null
+  }
+
+  // No vehicle on the job means the question has no subject, so it is not put.
+  const onSaveKmPerDay =
+    vehicleId === null ? null : (next: number) => saveVehicleUsage(vehicleId, next)
 
   const selectedVehicle = vehicles.find((row) => row.id === vehicleId) ?? null
 
@@ -863,6 +915,7 @@ export default function NewJob() {
                         intervalMonths={interval.reminder_months}
                         kmPerDay={kmPerDay}
                         due={graded}
+                        onSaveKmPerDay={onSaveKmPerDay}
                       />
                     )}
                     {noReminder && (

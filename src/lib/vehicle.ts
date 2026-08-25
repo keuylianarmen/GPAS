@@ -1,4 +1,5 @@
 import type { Database } from '../types/database'
+import { supabase } from './supabase'
 import { parseOptionalInteger, parseOptionalPositiveInteger } from './parse'
 import { t } from './i18n'
 
@@ -113,6 +114,34 @@ export function vehicleUpdateFrom(
     current_odometer: odometer,
     km_per_day: kmPerDay,
   }
+}
+
+/**
+ * Writes a daily average to the vehicle on its own.
+ *
+ * A targeted single-column update rather than `vehicleUpdateFrom`: this is
+ * called from a job line, which is holding no copy of the plate, make or
+ * odometer and must not write anything back over them. Whoever answered the
+ * question at the counter answered only this one.
+ *
+ * Returns the refreshed row so the caller can put it back in its list, or a
+ * message to show in place — a failure here is not the line's problem.
+ */
+export async function saveKmPerDay(
+  vehicleId: string,
+  kmPerDay: number,
+): Promise<Vehicle | { error: string }> {
+  const { data, error } = await supabase
+    .from('vehicles')
+    .update({ km_per_day: kmPerDay })
+    .eq('id', vehicleId)
+    .select()
+    .single()
+
+  if (error || !data) {
+    return { error: error?.message ?? t('vehicleForm.saveFailed') }
+  }
+  return data
 }
 
 type VehicleLike = {

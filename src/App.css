@@ -1590,14 +1590,61 @@
   color: var(--amber);
 }
 
-/* Why the next-due pair says what it says. Sits under both fields, quiet as a
-   note rather than framed as a flag: nothing here is wrong, it is arithmetic
-   the reader is free to overrule. */
-.due-hint {
+/* Why the next-due pair says what it says, and the one figure that would
+   sharpen it. Sits under both fields, quiet as a note rather than framed as a
+   flag: nothing here is wrong, it is arithmetic the reader is free to
+   overrule. */
+.due-explain {
   margin: 8px 0 14px;
+}
+
+.due-hint {
   font-size: 12px;
   line-height: 1.5;
   color: var(--muted);
+}
+
+/* The daily average, asked where the date that depends on it is explained.
+   Wraps rather than squeezing: the label is a whole question in both
+   languages, and the answer beside it is two or three digits. */
+.due-usage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.due-usage-field {
+  flex: 1 1 220px;
+  max-width: 300px;
+  margin-bottom: 0;
+}
+
+.due-usage-field > span {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.due-usage-field input {
+  max-width: 120px;
+  padding: 7px 10px;
+  font-size: 14px;
+}
+
+.due-usage-state,
+.due-usage-error {
+  font-size: 12px;
+}
+
+.due-usage-state {
+  color: var(--muted);
+}
+
+/* Amber, not red: the figure is still in the box and the line is unaffected. */
+.due-usage-error {
+  color: var(--amber);
 }
 
 /* Fluid capture — one compact row beside the prices, not a form per line. */

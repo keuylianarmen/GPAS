@@ -1,6 +1,7 @@
 import { km } from '../lib/format'
 import type { GradeDue } from '../lib/due'
 import { t, tn } from '../lib/i18n'
+import KmPerDayField from './KmPerDayField'
 
 /**
  * Why the next-due fields on this line say what they say.
@@ -13,6 +14,10 @@ import { t, tn } from '../lib/i18n'
  * Two clauses: what the grade is rated for, then which of its two limits
  * produced the date. The distance the app wrote is left to the odometer hint
  * under the km field, which already shows the gap.
+ *
+ * Below them, the one input that would sharpen all of it. The daily average
+ * is the difference between a date and a guess, and this is the moment
+ * somebody could just ask.
  */
 export default function GradeDueHint({
   grade,
@@ -20,6 +25,8 @@ export default function GradeDueHint({
   intervalMonths,
   kmPerDay,
   due,
+  onSaveKmPerDay,
+  disabled = false,
 }: {
   /** The grade's label in the reading language. */
   grade: string
@@ -27,6 +34,13 @@ export default function GradeDueHint({
   intervalMonths: number | null
   kmPerDay: number | null
   due: GradeDue
+  /**
+   * Persists a daily average against the car. Null when there is nothing to
+   * write it to — a job with no vehicle linked, where the question has no
+   * subject and the field is not offered.
+   */
+  onSaveKmPerDay: ((kmPerDay: number) => Promise<string | null>) | null
+  disabled?: boolean
 }) {
   // Both counts go through plural rules: Arabic needs two, few and many for
   // figures English treats identically. The day count is handed to tn twice —
@@ -72,10 +86,19 @@ export default function GradeDueHint({
   }
 
   return (
-    // A sentence carrying figures, not a bare figure: .figures with dir auto,
-    // so each unit stays attached to its number in Arabic.
-    <p className="due-hint figures" dir="auto">
-      {rated} {reason()}
-    </p>
+    <div className="due-explain">
+      {/* A sentence carrying figures, not a bare figure: .figures with dir
+          auto, so each unit stays attached to its number in Arabic. */}
+      <p className="due-hint figures" dir="auto">
+        {rated} {reason()}
+      </p>
+      {onSaveKmPerDay && (
+        <KmPerDayField
+          value={kmPerDay}
+          onSave={onSaveKmPerDay}
+          disabled={disabled}
+        />
+      )}
+    </div>
   )
 }

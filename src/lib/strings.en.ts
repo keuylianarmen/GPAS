@@ -188,6 +188,8 @@ export const en = {
   'gradeDue.noDate':
     'No date to compute from — that needs months on the grade, or km a day on the car.',
   'gradeDue.due': 'Next due {date}.',
+  'gradeDue.usageLabel': 'Km a day for this car. Edit it if the date looks wrong.',
+  'gradeDue.usageOnCar': 'saved on the car',
   'gradeDue.months.one': '{count} month',
   'gradeDue.months.other': '{count} months',
   'gradeDue.days.one': '{count} day',

@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Database, Json } from './types/database'
 import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
-import { DECIDED_DUE, dueDefaults, gradeDue, regradeDue } from './lib/due'
+import {
+  DECIDED_DUE,
+  dueDefaults,
+  gradeDue,
+  regradeDue,
+  withRegradedDue,
+} from './lib/due'
 import type { DueMark } from './lib/due'
 import { useGradeIntervals } from './lib/useGradeIntervals'
 import {
@@ -21,7 +27,7 @@ import {
 } from './lib/tire'
 import type { TireDraft } from './lib/tire'
 import { customerLabel } from './lib/customer'
-import { jobVehicleLabel, vehicleLabel } from './lib/vehicle'
+import { jobVehicleLabel, saveKmPerDay, vehicleLabel } from './lib/vehicle'
 import { parseOptionalInteger, priceValue } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import type { OdometerWarning } from './lib/odometer'
@@ -554,6 +560,45 @@ function JobDialog({
     )
   }
 
+  /**
+   * A daily average answered at a line. It is the car's, so it goes straight
+   * to the car — unlike the vehicle link and the reading, which are held until
+   * the job is saved, this is not a fact about this visit and there is nothing
+   * to hold it for.
+   */
+  async function saveVehicleUsage(id: string, next: number): Promise<string | null> {
+    const saved = await saveKmPerDay(id, next)
+    if ('error' in saved) return saved.error
+
+    setLinkable((current) => current.map((row) => (row.id === saved.id ? saved : row)))
+
+    // Every oil line on the job runs off this figure, not just the one that
+    // asked. Saved lines are untouched — their due point was settled at that
+    // visit. `next` rather than the memo, which has not caught up yet.
+    setDrafts((current) =>
+      current.map((draft) => {
+        const service = serviceById.get(draft.serviceId)
+        return withRegradedDue(
+          draft,
+          gradeDue(
+            service,
+            gradeInterval(service?.fluid_grade_list ?? null, draft.fluid.grade),
+            jobOdometer,
+            next,
+            job.start_date,
+          ),
+        )
+      }),
+    )
+
+    return null
+  }
+
+  // No vehicle on the job means the question has no subject, so it is not put.
+  const onSaveKmPerDay = vehicleId
+    ? (next: number) => saveVehicleUsage(vehicleId, next)
+    : null
+
   function removeDraft(draft: ItemDraft) {
     if (draft.id) setRemovedIds((current) => [...current, draft.id as string])
     setDrafts((current) => current.filter((row) => row.key !== draft.key))
@@ -1050,6 +1095,8 @@ function JobDialog({
                       intervalMonths={interval.reminder_months}
                       kmPerDay={kmPerDay}
                       due={graded}
+                      onSaveKmPerDay={onSaveKmPerDay}
+                      disabled={saving}
                     />
                   )}
                   {noReminder && (

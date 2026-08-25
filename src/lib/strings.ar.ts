@@ -187,6 +187,8 @@ export const ar: Catalogue = {
   'gradeDue.noDate':
     'لا يوجد ما يُحسب منه تاريخ — يلزم عدد أشهر للدرجة، أو معدّل كيلومترات يومي للسيارة.',
   'gradeDue.due': 'الاستحقاق التالي {date}.',
+  'gradeDue.usageLabel': 'الكيلومترات اليومية لهذه السيارة. عدّلها إذا بدا التاريخ غير صحيح.',
+  'gradeDue.usageOnCar': 'يُحفظ على السيارة',
   'gradeDue.months.one': 'شهر واحد',
   'gradeDue.months.two': 'شهرين',
   'gradeDue.months.few': '{count} أشهر',
