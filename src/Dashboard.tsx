@@ -76,14 +76,18 @@ export default function Dashboard({
         noPhoneResult,
         noOptInResult,
       ] = await Promise.all([
+        // Completed only: an open job is work in progress, and a cancelled
+        // one never happened. Both are visible on the Jobs screen instead.
         supabase
           .from('jobs')
           .select('id', { count: 'exact', head: true })
-          .eq('start_date', today),
+          .eq('start_date', today)
+          .eq('status', 'completed'),
         // Revenue comes from the totals view; it is never stored on the job.
         supabase
           .from('v_job_totals')
           .select('total_with_tax')
+          .eq('status', 'completed')
           .gte('start_date', start)
           .lte('start_date', end),
         supabase.from('customers').select('id', { count: 'exact', head: true }),
@@ -92,6 +96,7 @@ export default function Dashboard({
           .select(
             'id, job_no, start_date, payment_method, vehicle_id, customers(name_en, name_ar), vehicles(plate, make, model), job_items(services(name_en, name_ar))',
           )
+          .eq('status', 'completed')
           .order('start_date', { ascending: false })
           .order('job_no', { ascending: false })
           .limit(5),

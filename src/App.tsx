@@ -133,6 +133,8 @@ function Shell({ staff }: { staff: Staff }) {
   const [menuOpen, setMenuOpen] = useState(false)
   // Set when a screen links straight to one customer; cleared once opened.
   const [focusCustomerId, setFocusCustomerId] = useState<string | null>(null)
+  // An open job the Jobs screen asked New job to pick up.
+  const [resumeJobId, setResumeJobId] = useState<string | null>(null)
 
   // Written here rather than at each call site, so every route that changes
   // the tab is covered.
@@ -250,7 +252,14 @@ function Shell({ staff }: { staff: Staff }) {
             onFocusHandled={() => setFocusCustomerId(null)}
           />
         ) : tab === 'jobs' ? (
-          <Jobs staff={staff} onNewJob={() => setTab('new-job')} />
+          <Jobs
+            staff={staff}
+            onNewJob={() => setTab('new-job')}
+            onResumeJob={(jobId) => {
+              setResumeJobId(jobId)
+              setTab('new-job')
+            }}
+          />
         ) : tab === 'reminders' ? (
           <Reminders />
         ) : tab === 'stats' ? (
@@ -261,7 +270,10 @@ function Shell({ staff }: { staff: Staff }) {
             }}
           />
         ) : tab === 'new-job' ? (
-          <NewJob />
+          <NewJob
+            resumeJobId={resumeJobId}
+            onResumeHandled={() => setResumeJobId(null)}
+          />
         ) : (
           <Dashboard onNavigate={setTab} />
         )}

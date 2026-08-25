@@ -1227,6 +1227,69 @@
   border-radius: var(--radius-sm);
 }
 
+/* Open jobs ------------------------------------------------------------ */
+
+/* Above the history, because an unfinished job is something to act on rather
+   than something to browse. */
+.open-jobs {
+  margin-bottom: 22px;
+}
+
+.job-row--open {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: start;
+}
+
+.job-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+
+/* What a job is, when it is not simply history. Quiet: the row already says
+   which job it is, and this only qualifies it. */
+.job-badge {
+  margin-inline-start: 8px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Unfinished jobs offered on arrival at New job. */
+.resume-strip {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.resume-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.resume-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  font-size: 13px;
+}
+
 /* Vehicle change confirmation ------------------------------------------ */
 
 .confirm-panel {

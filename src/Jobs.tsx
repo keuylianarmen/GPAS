@@ -28,6 +28,7 @@ import {
 import type { TireDraft } from './lib/tire'
 import { customerLabel } from './lib/customer'
 import { jobVehicleLabel, saveKmPerDay, vehicleLabel } from './lib/vehicle'
+import { cancelJob } from './lib/openJob'
 import { parseOptionalInteger, priceValue } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import type { OdometerWarning } from './lib/odometer'
@@ -69,10 +70,13 @@ function editedOn(job: Job): string | null {
 export default function Jobs({
   staff,
   onNewJob,
+  onResumeJob,
 }: {
   staff: Staff
   /** The same state switch the tabs make — New job is a section, not a modal. */
   onNewJob: () => void
+  /** Hands an open job to New job, which is where a job is entered. */
+  onResumeJob: (jobId: string) => void
 }) {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -81,6 +85,11 @@ export default function Jobs({
   const [referenceReady, setReferenceReady] = useState(false)
 
   const [jobs, setJobs] = useState<JobRow[]>([])
+  // Kept apart from the list: an unfinished job is something to act on, not
+  // something to browse, and the filters below do not apply to it.
+  const [openJobs, setOpenJobs] = useState<JobRow[]>([])
+  const [cancelling, setCancelling] = useState<JobRow | null>(null)
+  const [cancelError, setCancelError] = useState<string | null>(null)
   const [totals, setTotals] = useState<Map<string, number | null>>(new Map())
   const [jobsReady, setJobsReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -148,6 +157,9 @@ export default function Jobs({
       let query = supabase
         .from('jobs')
         .select('*, customers(name_en, name_ar), vehicles(plate, make, model), job_items(count)')
+        // Open jobs have their own section. They are not history yet, and a
+        // date filter over a job still being entered means nothing.
+        .in('status', ['completed', 'cancelled'])
         .order('start_date', { ascending: false })
         .order('job_no', { ascending: false })
         .limit(LIST_LIMIT)
@@ -168,6 +180,18 @@ export default function Jobs({
       const rows = data ?? []
       setJobs(rows)
       setError(null)
+
+      const { data: openRows, error: openError } = await supabase
+        .from('jobs')
+        .select(
+          '*, customers(name_en, name_ar), vehicles(plate, make, model), job_items(count)',
+        )
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+
+      if (cancelled) return
+      if (openError) setError(openError.message)
+      else setOpenJobs(openRows ?? [])
 
       // v_job_totals is the only source of a job's money.
       if (rows.length > 0) {
@@ -296,6 +320,96 @@ export default function Jobs({
         </div>
       )}
 
+      {openJobs.length > 0 && (
+        <section className="open-jobs">
+          <div className="section-label">
+            <span>{t('jobs.openSection')}</span>
+          </div>
+          <p className="field-note">{t('jobs.openHint')}</p>
+
+          {openJobs.map((job) => {
+            const lines = job.job_items?.[0]?.count ?? 0
+            return (
+              <div className="card job-row job-row--open" key={job.id}>
+                <div>
+                  <div dir="auto">
+                    {t('newJob.jobNumber', { number: job.job_no })}
+                    {' \u00B7 '}
+                    {job.customers
+                      ? customerLabel(job.customers)
+                      : t('jobs.unknownCustomer')}
+                  </div>
+                  <div className="muted figures" dir="auto">
+                    {jobVehicleLabel(job.vehicle_id, job.vehicles)}
+                    {' \u00B7 '}
+                    {lines === 0 ? t('jobs.noLinesYet') : tn(lines, 'jobs.lines')}
+                    {' \u00B7 '}
+                    {t('jobs.startedOn', { date: job.start_date })}
+                  </div>
+                </div>
+                <div className="job-row-actions">
+                  <button
+                    type="button"
+                    className="btn btn--dark btn--small"
+                    onClick={() => onResumeJob(job.id)}
+                  >
+                    {t('jobs.resume')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--quiet btn--small"
+                    onClick={() => {
+                      setCancelError(null)
+                      setCancelling(job)
+                    }}
+                  >
+                    {t('jobs.cancelJob')}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          {cancelling && (
+            <div className="card notice confirm-panel">
+              <p className="confirm-title">
+                {t('jobs.cancelTitle', { number: cancelling.job_no })}
+              </p>
+              <p>{t('jobs.cancelBody')}</p>
+              {cancelError && (
+                <p className="error" role="alert">
+                  {cancelError}
+                </p>
+              )}
+              <div className="confirm-row">
+                <button
+                  type="button"
+                  className="btn btn--dark btn--small"
+                  onClick={async () => {
+                    const failure = await cancelJob(cancelling.id)
+                    if (failure) {
+                      setCancelError(failure)
+                      return
+                    }
+                    setCancelling(null)
+                    setReloadToken((token) => token + 1)
+                  }}
+                >
+                  {t('jobs.cancelConfirm')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--quiet btn--small"
+                  onClick={() => setCancelling(null)}
+                >
+                  {t('jobs.cancelKeep')}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       {loading ? (
         <p className="muted">{t('jobs.loading')}</p>
       ) : jobs.length === 0 ? (
@@ -319,6 +433,12 @@ export default function Jobs({
                         ? customerLabel(job.customers)
                         : t('jobs.unknownCustomer')}
                     </span>
+                    {/* Cancelled jobs stay in the list — the record of what
+                        was typed is the reason they were cancelled rather
+                        than deleted — so they say what they are. */}
+                    {job.status === 'cancelled' && (
+                      <span className="job-badge">{t('jobs.statusCancelled')}</span>
+                    )}
                   </div>
                   <div className="list-row-meta">
                     <span className="num">{job.start_date}</span> ·{' '}

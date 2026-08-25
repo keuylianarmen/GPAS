@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Database } from './types/database'
+import type { Database, Json } from './types/database'
 import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
 import { todayIso } from './lib/date'
 import {
+  DECIDED_DUE,
   UNTOUCHED_DUE,
   dueDefaults,
   gradeDue,
@@ -13,10 +14,29 @@ import {
 } from './lib/due'
 import type { DueMark } from './lib/due'
 import { useGradeIntervals } from './lib/useGradeIntervals'
-import { emptyFluidDraft, sameFluid, usesFluid } from './lib/fluid'
+import {
+  emptyFluidDraft,
+  fluidDraftFromDetails,
+  sameFluid,
+  usesFluid,
+} from './lib/fluid'
 import { lineDetails } from './lib/lineDetails'
+import {
+  cancelJob,
+  completeJob,
+  createLine,
+  createOpenJob,
+  deleteLine,
+  patchJob,
+  patchLine,
+} from './lib/openJob'
 import type { FluidDraft } from './lib/fluid'
-import { emptyTireDraft, sameTire, tracksTires } from './lib/tire'
+import {
+  emptyTireDraft,
+  sameTire,
+  tireDraftFromDetails,
+  tracksTires,
+} from './lib/tire'
 import type { TireDraft } from './lib/tire'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
 import { jobVehicleLabel, vehicleLabel } from './lib/vehicle'
@@ -51,8 +71,17 @@ type Category = Database['public']['Tables']['service_categories']['Row']
 type Service = Database['public']['Tables']['services']['Row']
 type PaymentMethod = Database['public']['Tables']['lookup_values']['Row']
 
+/** An open job as the resume strip needs it — enough to recognise, no more. */
+type ResumableJob = Job & {
+  customers: { name_en: string | null; name_ar: string | null } | null
+  vehicles: { plate: string | null; make: string | null; model: string | null } | null
+  job_items: { count: number }[]
+}
+
 type Line = {
   key: number
+  /** The job_items row, once a service has been chosen and it exists. */
+  id: string | null
   serviceId: string
   partPrice: string
   laborPrice: string
@@ -64,6 +93,34 @@ type Line = {
   dueMark: DueMark
   fluid: FluidDraft
   tire: TireDraft
+  /** The row's stored details, so a save preserves keys this screen does not edit. */
+  details: Json
+}
+
+/**
+ * The columns a line writes. Every key is named on every row, including the
+ * null ones: postgrest builds its column list from the union of the keys
+ * present and writes NULL into any row missing one another row has.
+ */
+function lineFields(line: Line) {
+  const dueKm = parseOptionalInteger(line.nextDueKm)
+  return {
+    details: lineDetails(line.details, line.fluid, line.tire),
+    part_price: priceValue(line.partPrice),
+    labor_price: priceValue(line.laborPrice),
+    sub_price: priceValue(line.subPrice),
+    subcontractor_id: line.subcontractorId,
+    next_due_odometer: dueKm === 'invalid' ? null : dueKm,
+    next_due_date: line.nextDueDate || null,
+  }
+}
+
+/**
+ * What a line looks like to the autosave. Compared rather than diffed: the
+ * only question is whether the row on the server still matches the screen.
+ */
+function lineSignature(line: Line): string {
+  return JSON.stringify([line.serviceId, lineFields(line)])
 }
 
 /**
@@ -116,7 +173,14 @@ function describeVehicle(vehicle: Vehicle): string {
   return spec || t('newJob.noVehicleDetails')
 }
 
-export default function NewJob() {
+export default function NewJob({
+  resumeJobId,
+  onResumeHandled,
+}: {
+  /** An open job to open straight into, handed over from the Jobs screen. */
+  resumeJobId?: string | null
+  onResumeHandled?: () => void
+}) {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -164,6 +228,30 @@ export default function NewJob() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedJob, setSavedJob] = useState<Job | null>(null)
   const [savedTotal, setSavedTotal] = useState<number | null>(null)
+
+  // The open row every step writes to. Null only before a customer is chosen,
+  // or when creating it failed — which is a state the screen has to show
+  // rather than paper over, since nothing is being saved until it exists.
+  const [job, setJob] = useState<Job | null>(null)
+  const [jobError, setJobError] = useState<string | null>(null)
+  const [startingJob, setStartingJob] = useState(false)
+
+  // Open jobs found on arrival, offered rather than resumed automatically —
+  // the person at the counter knows whether this is the same car.
+  const [resumable, setResumable] = useState<ResumableJob[] | null>(null)
+  const [resuming, setResuming] = useState(false)
+
+  // A resumed job can point at a vehicle that is no longer this customer's.
+  const [strandedVehicle, setStrandedVehicle] = useState<string | null>(null)
+
+  // What the server holds for each line, so the autosave writes only changes.
+  const lineSync = useRef({
+    signature: new Map<number, string>(),
+    inFlight: new Set<number>(),
+    // Lines removed while their insert was in flight. Without this the row
+    // lands after the line is gone and nothing ever deletes it.
+    removed: new Set<number>(),
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -213,6 +301,66 @@ export default function NewJob() {
       cancelled = true
     }
   }, [])
+
+  /**
+   * Open jobs, looked for once on arrival.
+   *
+   * This screen is unmounted every time the user looks at another tab, so an
+   * unfinished job is not an unusual state — it is what a glance at Reminders
+   * mid-entry leaves behind. Offering them here is what stops that becoming a
+   * row nobody ever sees again.
+   */
+  useEffect(() => {
+    if (resumeJobId) return
+
+    let cancelled = false
+    supabase
+      .from('jobs')
+      .select(
+        '*, customers(name_en, name_ar), vehicles(plate, make, model), job_items(count)',
+      )
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          // Not fatal: a new job can still be started without this list.
+          console.error('Could not look for unfinished jobs', error)
+          return
+        }
+        setResumable(data ?? [])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [resumeJobId])
+
+  /** Arriving from the Jobs screen with one already chosen. */
+  useEffect(() => {
+    if (!resumeJobId) return
+
+    let cancelled = false
+    supabase
+      .from('jobs')
+      .select('*')
+      .eq('id', resumeJobId)
+      .single()
+      .then(({ data, error }) => {
+        if (cancelled) return
+        onResumeHandled?.()
+        if (error || !data) {
+          setJobError(error?.message ?? t('newJob.resumeLoadFailed'))
+          return
+        }
+        resumeJob(data)
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeJobId])
 
   // Vehicles belong to the chosen customer, so they load on selection rather
   // than up front.
@@ -288,6 +436,21 @@ export default function NewJob() {
       : { value: vehicle.current_odometer, source: 'vehicle' }
   }, [jobOdometer, vehicles, vehicleId])
 
+  /**
+   * A resumed job whose vehicle is not among this customer's any more — moved
+   * to another owner, or removed outright.
+   *
+   * Deliberately not treated as "no vehicle". The job still carries the id,
+   * and rewriting that to null because the app cannot resolve it would change
+   * what the job says without anyone deciding to. Instead the choice is
+   * reopened: the picker stays open, the notice explains, and the row is left
+   * alone until somebody picks.
+   */
+  const vehicleUnresolved =
+    strandedVehicle !== null &&
+    vehiclesReady &&
+    !vehicles.some((row) => row.id === strandedVehicle)
+
   // Only the linked vehicle has a daily average, so a counter sale computes
   // its dates from the months alone.
   const kmPerDay = useMemo(
@@ -336,6 +499,7 @@ export default function NewJob() {
   function addLine(serviceId = '') {
     const base: Line = {
       key: nextLineKey.current++,
+      id: null,
       serviceId: '',
       partPrice: '',
       laborPrice: '',
@@ -346,6 +510,7 @@ export default function NewJob() {
       dueMark: UNTOUCHED_DUE,
       fluid: emptyFluidDraft(),
       tire: emptyTireDraft(),
+      details: {},
     }
     setLines((current) => [...current, serviceId ? applyService(base, serviceId) : base])
   }
@@ -354,6 +519,121 @@ export default function NewJob() {
     setLines((current) =>
       current.map((line) => (line.key === key ? { ...line, ...patch } : line)),
     )
+  }
+
+  /**
+   * Writes every line whose contents no longer match what the server holds.
+   *
+   * One pass over the lines rather than a save hook on each field. The child
+   * field components have no idea a row exists behind them and should not
+   * need to: a line is data, and this is the one place that knows how to put
+   * data on the server.
+   *
+   * A line with no service is not a row yet — the picker opens an empty one
+   * automatically, and an empty line is not something anyone typed.
+   */
+  async function syncLines(jobId: string, rows: Line[]): Promise<Line[]> {
+    // Returned rather than read back from state: `updateLine` schedules a
+    // render, so the ids it writes are not visible on the array this call was
+    // handed. The completion path needs to know what actually landed.
+    const settled = [...rows]
+
+    for (const [index, line] of settled.entries()) {
+      if (!line.serviceId) continue
+
+      const signature = lineSignature(line)
+      const sync = lineSync.current
+      if (sync.signature.get(line.key) === signature) continue
+      // An insert already on its way. Skipping leaves the row unwritten for
+      // now; the next pass sees the same difference and writes it then.
+      if (sync.inFlight.has(line.key)) continue
+
+      sync.inFlight.add(line.key)
+      try {
+        if (line.id === null) {
+          const row = await createLine(jobId, line.serviceId, lineFields(line))
+          if ('error' in row) {
+            setJobError(row.error)
+            continue
+          }
+          // Removed while the insert was in flight: the line is gone from the
+          // screen, so the row it just created has to go too.
+          if (sync.removed.has(line.key)) {
+            sync.removed.delete(line.key)
+            await deleteLine(row.id)
+            continue
+          }
+          settled[index] = { ...line, id: row.id }
+          updateLine(line.key, { id: row.id })
+        } else {
+          const failure = await patchLine(line.id, {
+            service_id: line.serviceId,
+            ...lineFields(line),
+          })
+          if (failure) {
+            setJobError(failure)
+            continue
+          }
+        }
+        // Recorded only on success, so a failed write is retried rather than
+        // remembered as saved.
+        sync.signature.set(line.key, signature)
+        setJobError(null)
+      } finally {
+        sync.inFlight.delete(line.key)
+      }
+    }
+
+    return settled
+  }
+
+  // Settles after typing stops rather than on every keystroke. The delay is
+  // the only thing that can be lost to a crash, and it costs one request per
+  // pause instead of one per character.
+  useEffect(() => {
+    if (job === null) return
+
+    const timer = setTimeout(() => {
+      syncLines(job.id, lines)
+    }, 700)
+
+    return () => clearTimeout(timer)
+    // syncLines closes over state it re-reads each call; re-running on a new
+    // identity every render would defeat the debounce.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job, lines])
+
+  /**
+   * Removing a line removes its row. trg_cancel_reminder fires and finds
+   * nothing to cancel — an 'open' line never created a reminder — so this is
+   * a plain delete rather than the careful supersede the Jobs screen needs.
+   */
+  async function removeLine(line: Line) {
+    setLines((current) => current.filter((row) => row.key !== line.key))
+    lineSync.current.signature.delete(line.key)
+
+    if (line.id === null) {
+      // Nothing to delete yet — but an insert may be in flight, and syncLines
+      // deletes what it creates if it finds the key here.
+      if (lineSync.current.inFlight.has(line.key)) {
+        lineSync.current.removed.add(line.key)
+      }
+      return
+    }
+    const failure = await deleteLine(line.id)
+    if (failure) setJobError(failure)
+  }
+
+  /** Applies a patch to the open job and keeps the local row in step. */
+  async function saveJob(patch: Parameters<typeof patchJob>[1]) {
+    if (!job) return
+    const saved = await patchJob(job.id, patch)
+    if ('error' in saved) {
+      setJobError(saved.error)
+      return
+    }
+    setJob(saved)
+    setJobError(null)
   }
 
   /**
@@ -411,25 +691,62 @@ export default function NewJob() {
   const selectedVehicle = vehicles.find((row) => row.id === vehicleId) ?? null
 
   /**
-   * The reset a genuine customer change makes.
-   *
-   * The lines go. Their next-due readings were measured against a car that
-   * belongs to somebody else, and the reminder they create is keyed on that
-   * vehicle — there is nothing in a line that survives the move. The picker
-   * flag goes with them so the services step opens one again, as on a fresh
-   * job.
+   * Clears everything the previous customer's job put on screen. The rows
+   * themselves are dealt with by the caller — cancelled, or never created.
    */
-  function switchCustomer(next: Customer) {
-    setCustomer(next)
-    setPickingCustomer(false)
+  function clearJobState() {
     setVehicleId(null)
     setVehicleChosen(false)
     setOdometer('')
     setLines([])
+    setStrandedVehicle(null)
+    lineSync.current.signature.clear()
+    lineSync.current.inFlight.clear()
+    lineSync.current.removed.clear()
     servicePickerOpened.current = false
   }
 
-  function chooseCustomer(next: Customer) {
+  /**
+   * Moves to a customer, opening the row that every later step writes to.
+   *
+   * An open job with nothing on it is worth moving rather than replacing: a
+   * mis-click on the customer list should cost a row update, not a `job_no`.
+   * Once there is work on it, `chooseCustomer` has already cancelled it and
+   * passes `fresh` so a new row is opened instead.
+   */
+  async function switchCustomer(next: Customer, fresh = false) {
+    setCustomer(next)
+    setPickingCustomer(false)
+    clearJobState()
+
+    if (job !== null && !fresh) {
+      await saveJob({ customer_id: next.id, vehicle_id: null, odometer: null })
+      return
+    }
+
+    setJob(null)
+    setStartingJob(true)
+    setJobError(null)
+
+    const created = await createOpenJob(next.id)
+    setStartingJob(false)
+
+    if ('error' in created) {
+      // The customer stays chosen and the error stays on screen. Continue is
+      // disabled until there is a row, because until then the promise this
+      // screen makes — that nothing is lost — is not one it can keep.
+      setJobError(created.error)
+      return
+    }
+    setJob(created)
+  }
+
+  /** Retry for a failed open, from the notice the failure puts on screen. */
+  async function retryStartJob() {
+    if (customer) await switchCustomer(customer, true)
+  }
+
+  async function chooseCustomer(next: Customer) {
     // The customer already on the job. Going back to check a name is not a
     // change, and must not cost the chosen vehicle or the typed reading.
     if (next.id === customer?.id) {
@@ -443,13 +760,13 @@ export default function NewJob() {
       return
     }
 
-    switchCustomer(next)
+    await switchCustomer(next)
     // One Tab and Enter from here, rather than scrolling past the list.
     continueRef.current?.focus()
   }
 
   /**
-   * Consent is taken before the dialog opens, but nothing is discarded until a
+   * Consent is taken before the dialog opens, but nothing is cancelled until a
    * customer actually exists to move to — cancelling the dialog leaves the job
    * exactly as it was.
    */
@@ -459,6 +776,37 @@ export default function NewJob() {
       return
     }
     setAddingCustomer(true)
+  }
+
+  /**
+   * A confirmed change away from a job that has work on it. The old row is
+   * cancelled rather than rewritten: what was typed at the counter for one
+   * customer is a record, and moving it onto another customer would make the
+   * job history say a visit happened that did not.
+   */
+  async function cancelAndSwitch(next: Customer | null) {
+    const leaving = job
+    setPendingCustomer(null)
+
+    if (leaving) {
+      const failure = await cancelJob(leaving.id)
+      if (failure) {
+        setJobError(failure)
+        return
+      }
+    }
+
+    if (next === null) {
+      // The add-customer path: nothing to move to yet, so the dialog opens
+      // and its onSaved does the switch once a customer exists.
+      setJob(null)
+      setCustomer(null)
+      clearJobState()
+      setAddingCustomer(true)
+      return
+    }
+
+    await switchCustomer(next, true)
   }
 
   /**
@@ -484,6 +832,12 @@ export default function NewJob() {
     setVehicleChosen(true)
     setPickingVehicle(false)
     setOdometer(reading === null ? '' : String(reading))
+    // Picking any vehicle answers the stranded-vehicle notice, including the
+    // deliberate choice of none.
+    setStrandedVehicle(null)
+    // trg_move_reminders fires on this, and correctly does nothing: the lines
+    // are still 'open', so no reminder exists to move.
+    saveJob({ vehicle_id: nextId, odometer: reading })
 
     // The new car's own figures, not the memos, which are still holding the
     // old car's until this render lands.
@@ -540,10 +894,26 @@ export default function NewJob() {
     setSavedJob(null)
     setSavedTotal(null)
     setSaveError(null)
+    setJob(null)
+    setJobError(null)
+    setStrandedVehicle(null)
+    setResumable(null)
+    lineSync.current.signature.clear()
+    lineSync.current.inFlight.clear()
+    lineSync.current.removed.clear()
   }
 
-  async function handleSave() {
-    if (!customer) return
+  /**
+   * The last action, and the only one that changes what the job means.
+   *
+   * Everything on screen is already on the server, so this is not a save. It
+   * flushes whatever the debounce is still holding, writes the payment method
+   * and reading one last time, then hands off to `completeJob` — which flips
+   * the lines to 'done' before the job to 'completed', so the reminders fire
+   * exactly once and only for a job that is actually finished.
+   */
+  async function handleComplete() {
+    if (!customer || !job) return
 
     const parsedOdometer = parseOptionalInteger(odometer)
     if (parsedOdometer === 'invalid') {
@@ -554,75 +924,119 @@ export default function NewJob() {
     setSaveError(null)
     setSaving(true)
 
-    let job = savedJob
-    if (!job) {
-      const { data, error } = await supabase
-        .from('jobs')
-        .insert({
-          customer_id: customer.id,
-          vehicle_id: vehicleId,
-          odometer: parsedOdometer,
-          payment_method: paymentMethod || null,
-          status: 'completed',
-        })
-        .select()
-        .single()
+    // Anything typed in the last few hundred milliseconds is still pending.
+    const settled = await syncLines(job.id, lines)
 
-      if (error || !data) {
-        setSaveError(error?.message ?? t('newJob.jobSaveFailed'))
-        setSaving(false)
-        return
-      }
-      job = data
-      setSavedJob(data)
+    // A line whose row never landed would be completed without its work. The
+    // sync above is the last chance, so this is checked rather than assumed —
+    // against what it returned, not against the state it has only scheduled.
+    const unwritten = settled.filter((line) => line.serviceId && line.id === null)
+    if (unwritten.length > 0) {
+      setSaveError(t('newJob.linesFailed', {
+        number: job.job_no,
+        reason: jobError ?? t('openJob.lineFailed'),
+      }))
+      setSaving(false)
+      return
     }
 
-    if (filledLines.length > 0) {
-      // The trigger turns next_due_* into reminders — the app never writes to
-      // the reminders table itself.
-      const { error } = await supabase.from('job_items').insert(
-        filledLines.map((line) => {
-          const dueKm = parseOptionalInteger(line.nextDueKm)
-          return {
-            job_id: job.id,
-            details: lineDetails({}, line.fluid, line.tire),
-            service_id: line.serviceId,
-            part_price: priceValue(line.partPrice),
-            labor_price: priceValue(line.laborPrice),
-            sub_price: priceValue(line.subPrice),
-            // Sent on every row, null where absent. postgrest-js builds the
-            // column list from the union of the array's keys and writes NULL
-            // into any row missing one — a conditional spread here caused a
-            // NOT NULL violation once already.
-            subcontractor_id: line.subcontractorId,
-            next_due_odometer: dueKm === 'invalid' ? null : dueKm,
-            next_due_date: line.nextDueDate || null,
-            status: 'done' as const,
-          }
-        }),
-      )
+    const completed = await completeJob(job.id, {
+      vehicle_id: vehicleId,
+      odometer: parsedOdometer,
+      payment_method: paymentMethod || null,
+    })
 
-      if (error) {
-        setSaveError(
-          t('newJob.linesFailed', {
-            number: job.job_no,
-            reason: error.message,
-          }),
-        )
-        setSaving(false)
-        return
-      }
+    if ('error' in completed) {
+      setSaveError(completed.error)
+      setSaving(false)
+      return
     }
+
+    setJob(null)
+    setSavedJob(completed)
 
     // Totals live in the view, never on the job row.
     const { data: totals } = await supabase
       .from('v_job_totals')
       .select('total_with_tax')
-      .eq('job_id', job.id)
+      .eq('job_id', completed.id)
       .maybeSingle()
 
     setSavedTotal(totals?.total_with_tax ?? null)
     setSaving(false)
+  }
+
+  /**
+   * Opens an existing open job into this screen.
+   *
+   * The vehicle is the awkward part. A job can carry a `vehicle_id` that is no
+   * longer among this customer's vehicles — the car was moved to another
+   * owner, or removed outright. Dropping the link silently would rewrite what
+   * the job says without telling anybody, so the id is kept, the selection is
+   * left unmade, and the screen says so.
+   */
+  async function resumeJob(row: Job) {
+    setResuming(true)
+    setJobError(null)
+
+    const [customerResult, itemResult] = await Promise.all([
+      supabase.from('customers').select('*').eq('id', row.customer_id).single(),
+      supabase.from('job_items').select('*').eq('job_id', row.id).order('created_at'),
+    ])
+
+    if (customerResult.error || !customerResult.data) {
+      setJobError(customerResult.error?.message ?? t('newJob.resumeLoadFailed'))
+      setResuming(false)
+      return
+    }
+    if (itemResult.error) {
+      setJobError(itemResult.error.message)
+      setResuming(false)
+      return
+    }
+
+    lineSync.current.signature.clear()
+    lineSync.current.inFlight.clear()
+    lineSync.current.removed.clear()
+
+    const restored: Line[] = (itemResult.data ?? []).map((item) => {
+      const line: Line = {
+        key: nextLineKey.current++,
+        id: item.id,
+        serviceId: item.service_id,
+        partPrice: String(item.part_price ?? 0),
+        laborPrice: String(item.labor_price ?? 0),
+        subPrice: String(item.sub_price ?? 0),
+        subcontractorId: item.subcontractor_id,
+        nextDueKm: item.next_due_odometer === null ? '' : String(item.next_due_odometer),
+        nextDueDate: item.next_due_date ?? '',
+        // Written and left alone since: whatever is there was decided at the
+        // counter, and resuming is not a fresh prefill.
+        dueMark: DECIDED_DUE,
+        fluid: fluidDraftFromDetails(item.details),
+        tire: tireDraftFromDetails(item.details),
+        details: item.details,
+      }
+      // Seeded as already-saved, so arriving on screen does not rewrite every
+      // row it just read.
+      lineSync.current.signature.set(line.key, lineSignature(line))
+      return line
+    })
+
+    setJob(row)
+    setCustomer(customerResult.data)
+    setPickingCustomer(false)
+    setPickingVehicle(false)
+    setVehicleId(row.vehicle_id)
+    setVehicleChosen(row.vehicle_id !== null)
+    setOdometer(row.odometer === null ? '' : String(row.odometer))
+    setPaymentMethod(row.payment_method ?? '')
+    setLines(restored)
+    setStrandedVehicle(row.vehicle_id)
+    setResumable(null)
+    servicePickerOpened.current = restored.length > 0
+    setResuming(false)
+    setStep(restored.length > 0 ? 2 : 1)
   }
 
   if (loading) return <p className="muted">Loading…</p>
@@ -671,7 +1085,9 @@ export default function NewJob() {
             className="stepper-step"
             aria-current={step === index ? 'step' : undefined}
             data-state={step === index ? 'current' : index < step ? 'done' : 'ahead'}
-            disabled={index > 0 && !customer}
+            // The customer alone is not enough: until the row exists nothing
+            // on the later steps is being saved anywhere.
+            disabled={index > 0 && (!customer || job === null)}
             onClick={() => goToStep(index)}
           >
             <span className="stepper-index num">{index + 1}</span>
@@ -682,6 +1098,46 @@ export default function NewJob() {
 
       {step === 0 && (
         <section className="step-panel">
+          {resumable !== null && resumable.length > 0 && customer === null && (
+            <ResumeStrip
+              jobs={resumable}
+              busy={resuming}
+              onResume={resumeJob}
+              onDismiss={() => setResumable([])}
+            />
+          )}
+
+          {jobError !== null && job === null && customer !== null && (
+            <div className="card notice confirm-panel">
+              <p className="confirm-title">{t('newJob.jobCreateFailed')}</p>
+              <p className="muted">{jobError}</p>
+              <div className="confirm-row">
+                <button
+                  type="button"
+                  className="btn btn--dark btn--small"
+                  onClick={retryStartJob}
+                  disabled={startingJob}
+                >
+                  {startingJob ? t('action.saving') : t('newJob.retryJob')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {job !== null && (
+            <p className="field-note figures" dir="auto">
+              {t('newJob.jobOpened', { number: job.job_no })}
+              {jobError !== null && (
+                <>
+                  {' '}
+                  <span className="due-usage-error">
+                    {t('newJob.jobSaveFailedInline')}
+                  </span>
+                </>
+              )}
+            </p>
+          )}
+
           {customer && !pickingCustomer && (
             <div className="card chosen">
               <div>
@@ -698,20 +1154,16 @@ export default function NewJob() {
             </div>
           )}
 
-          {pendingCustomer !== null && (
+          {pendingCustomer !== null && job !== null && (
             <CustomerChangeConfirm
               to={pendingCustomer}
               from={customer}
+              jobNo={job.job_no}
               lines={linesWithWork}
               onCancel={() => setPendingCustomer(null)}
-              onConfirm={() => {
-                setPendingCustomer(null)
-                // The 'new' path discards nothing yet: the dialog may be
-                // cancelled, and there is no customer to move to until it is
-                // not. Its onSaved runs the same switch this branch does.
-                if (pendingCustomer === 'new') setAddingCustomer(true)
-                else switchCustomer(pendingCustomer)
-              }}
+              onConfirm={() =>
+                cancelAndSwitch(pendingCustomer === 'new' ? null : pendingCustomer)
+              }
             />
           )}
 
@@ -768,7 +1220,7 @@ export default function NewJob() {
             <p className="muted">{t('newJob.loadingVehicles')}</p>
           ) : (
             <>
-              {vehicleChosen && !pickingVehicle && (
+              {vehicleChosen && !pickingVehicle && !vehicleUnresolved && (
                 <div className="card chosen">
                   <div>
                     <div className="chosen-name num">
@@ -792,7 +1244,7 @@ export default function NewJob() {
                 </div>
               )}
 
-              <Collapsible open={!vehicleChosen || pickingVehicle}>
+              <Collapsible open={!vehicleChosen || pickingVehicle || vehicleUnresolved}>
                 <div className="section-label">
                   <span>{t('newJob.stepVehicle')}</span>
                   <button
@@ -834,6 +1286,10 @@ export default function NewJob() {
             </>
           )}
 
+          {vehicleUnresolved && (
+            <p className="line-flag">{t('newJob.vehicleMissing')}</p>
+          )}
+
           {vehicleId !== null && (
             <>
               <label className="field field--narrow">
@@ -846,6 +1302,13 @@ export default function NewJob() {
                   inputMode="numeric"
                   value={odometer}
                   onChange={(event) => setOdometer(event.target.value)}
+                  // On blur, not per keystroke: a half-typed reading is not a
+                  // reading, and trg_bump_odometer would apply each one to the
+                  // vehicle on its way past.
+                  onBlur={() => {
+                    const parsed = parseOptionalInteger(odometer)
+                    if (parsed !== 'invalid') saveJob({ odometer: parsed })
+                  }}
                   placeholder={t('vehicleForm.odometerPlaceholder')}
                 />
               </label>
@@ -919,9 +1382,7 @@ export default function NewJob() {
                   <button
                     type="button"
                     className="btn btn--quiet btn--small"
-                    onClick={() =>
-                      setLines((current) => current.filter((row) => row.key !== line.key))
-                    }
+                    onClick={() => removeLine(line)}
                   >
                     {t('action.remove')}
                   </button>
@@ -1113,7 +1574,10 @@ export default function NewJob() {
             <span>{t('newJob.paymentMethod')}</span>
             <select
               value={paymentMethod}
-              onChange={(event) => setPaymentMethod(event.target.value)}
+              onChange={(event) => {
+                setPaymentMethod(event.target.value)
+                saveJob({ payment_method: event.target.value || null })
+              }}
               disabled={saving}
             >
               <option value="">{t('common.notRecorded')}</option>
@@ -1214,7 +1678,7 @@ export default function NewJob() {
             className="btn btn--dark"
             ref={continueRef}
             onClick={() => goToStep(step + 1)}
-            disabled={!customer}
+            disabled={!customer || job === null}
           >
             {t('newJob.continue')}
           </button>
@@ -1222,14 +1686,10 @@ export default function NewJob() {
           <button
             type="button"
             className="btn btn--dark"
-            onClick={handleSave}
-            disabled={saving || !customer}
+            onClick={handleComplete}
+            disabled={saving || !customer || job === null}
           >
-            {saving
-              ? t('action.saving')
-              : savedJob
-                ? t('newJob.retryLines')
-                : t('newJob.save')}
+            {saving ? t('newJob.completing') : t('newJob.complete')}
           </button>
         )}
       </div>
@@ -1244,10 +1704,12 @@ export default function NewJob() {
           onSaved={({ customer: created, vehicles: created_vehicles }) => {
             setCustomers((current) => [created, ...current])
             // A created customer is always a different one, so this is always
-            // the full switch — including the lines, which belonged to
-            // whoever was on the job before.
-            switchCustomer(created)
-            setVehicleLoad({ customerId: created.id, rows: created_vehicles })
+            // the full switch. `fresh` when the previous job was cancelled on
+            // the way here — cancelAndSwitch clears `job` first, so the flag
+            // follows from whether one is still open.
+            switchCustomer(created, job === null).then(() => {
+              setVehicleLoad({ customerId: created.id, rows: created_vehicles })
+            })
             setAddingCustomer(false)
           }}
         />
@@ -1321,15 +1783,85 @@ export default function NewJob() {
  * share a car: no vehicle has been chosen for the incoming one yet, so there
  * is nothing to compare against, and the wording says what is true either way.
  */
+/**
+ * Jobs that were started and never finished, offered on arrival.
+ *
+ * Not resumed automatically, and not a dialog. The person at the counter is
+ * the only one who knows whether the car in front of them is the car this job
+ * was opened for, and starting a new job is the far commoner intent — so the
+ * list sits above the customer picker and gets out of the way when ignored.
+ */
+function ResumeStrip({
+  jobs,
+  busy,
+  onResume,
+  onDismiss,
+}: {
+  jobs: ResumableJob[]
+  busy: boolean
+  onResume: (job: Job) => void
+  onDismiss: () => void
+}) {
+  return (
+    <div className="card notice resume-strip">
+      <div className="resume-head">
+        <p className="confirm-title">{t('newJob.resumeTitle')}</p>
+        <button
+          type="button"
+          className="btn btn--quiet btn--small"
+          onClick={onDismiss}
+          disabled={busy}
+        >
+          {t('newJob.resumeDismiss')}
+        </button>
+      </div>
+      <p className="muted">{tn(jobs.length, 'newJob.resumeCount')}</p>
+
+      {jobs.map((row) => {
+        const lines = row.job_items?.[0]?.count ?? 0
+        return (
+          <div className="resume-row" key={row.id}>
+            <div>
+              <div dir="auto">
+                {t('newJob.jobNumber', { number: row.job_no })}
+                {' \u00B7 '}
+                {row.customers
+                  ? customerLabel(row.customers)
+                  : t('jobs.unknownCustomer')}
+              </div>
+              <div className="muted figures" dir="auto">
+                {jobVehicleLabel(row.vehicle_id, row.vehicles)}
+                {' \u00B7 '}
+                {lines === 0 ? t('newJob.resumeNothing') : tn(lines, 'jobs.lines')}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn--ghost btn--small"
+              onClick={() => onResume(row)}
+              disabled={busy}
+            >
+              {t('newJob.resumeAction')}
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function CustomerChangeConfirm({
   to,
   from,
+  jobNo,
   lines,
   onCancel,
   onConfirm,
 }: {
   to: Customer | 'new'
   from: Customer | null
+  /** The job about to be cancelled, named so it can be found afterwards. */
+  jobNo: number
   /** How many lines hold work. Never zero — the panel is not shown otherwise. */
   lines: number
   onCancel: () => void
@@ -1345,7 +1877,12 @@ function CustomerChangeConfirm({
           : t('newJob.changeCustomerTitle', { customer: customerLabel(to) })}
       </p>
 
-      <p dir="auto">{tn(lines, 'newJob.changeCustomerLines', { customer: fromLabel })}</p>
+      <p dir="auto">
+        {tn(lines, 'newJob.changeCustomerLines', {
+          customer: fromLabel,
+          number: jobNo,
+        })}
+      </p>
       <p className="field-note">{t('newJob.changeCustomerWhy')}</p>
 
       <div className="confirm-row">

@@ -698,14 +698,28 @@ function CustomerDetail({
                       {t('detail.jobPrefix')}{' '}
                       <span className="num">#{job.job_no}</span> ·{' '}
                       {job.job_type.replace(/_/g, ' ')}
+                      {/* An unfinished job belongs in the customer's own
+                          history — "they are in the shop right now" is worth
+                          seeing here — but it says what it is. */}
+                      {job.status === 'open' && (
+                        <span className="job-badge">{t('jobs.statusOpen')}</span>
+                      )}
+                      {job.status === 'cancelled' && (
+                        <span className="job-badge">{t('jobs.statusCancelled')}</span>
+                      )}
                     </div>
                     <div className="list-row-meta">
-                      <span className="num">{job.start_date}</span> · {job.status}
+                      <span className="num">{job.start_date}</span>
                       {job.payment_method ? ` · ${job.payment_method}` : ''}
                     </div>
                   </div>
                   <div className="list-row-amount num">
-                    {money(totals.get(job.id) ?? null)}
+                    {/* Only a completed job has money. An open one totals zero
+                        because its lines are still 'open', and printing 0.000
+                        would read as a job done for free. */}
+                    {money(
+                      job.status === 'completed' ? (totals.get(job.id) ?? null) : null,
+                    )}
                   </div>
                 </div>
               ))

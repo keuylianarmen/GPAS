@@ -2097,7 +2097,7 @@ export type Database = {
       }
     }
     Enums: {
-      item_status: "flagged" | "declined" | "done"
+      item_status: "open" | "flagged" | "declined" | "done"
       job_status: "open" | "in_progress" | "completed" | "cancelled"
       job_type: "workshop" | "roadside" | "tow_only"
       part_type: "part" | "fluid" | "consumable" | "tool"
@@ -2236,7 +2236,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      item_status: ["flagged", "declined", "done"],
+      item_status: ["open", "flagged", "declined", "done"],
       job_status: ["open", "in_progress", "completed", "cancelled"],
       job_type: ["workshop", "roadside", "tow_only"],
       part_type: ["part", "fluid", "consumable", "tool"],

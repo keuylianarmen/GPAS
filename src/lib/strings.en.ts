@@ -68,6 +68,9 @@ export const en = {
   'vehicle.numberedNamed': 'vehicle {number} ({label})',
   'vehicle.badYear': 'Year must be a whole number, or left blank.',
   'vehicle.badOdometer': 'Odometer must be a whole number, or left blank.',
+  'openJob.createFailed': 'The job could not be started.',
+  'openJob.saveFailed': 'That change could not be saved.',
+  'openJob.lineFailed': 'That line could not be saved.',
   'vehicle.badKmPerDay':
     'Km a day must be a whole number above zero, or left blank.',
 
@@ -482,6 +485,21 @@ export const en = {
   'jobs.lines.one': '{count} line',
   'jobs.lines.other': '{count} lines',
   'jobs.editedOn': 'edited {date}',
+  'jobs.openSection': 'In progress',
+  'jobs.openHint':
+    'Started at the counter and not finished. Resume to carry on, or cancel to put it aside \u2014 a cancelled job keeps everything that was typed on it.',
+  'jobs.resume': 'Resume',
+  'jobs.cancelJob': 'Cancel job',
+  'jobs.cancelTitle': 'Cancel job #{number}?',
+  'jobs.cancelBody':
+    'It stops being in progress and keeps everything typed on it. It will not count as a visit, as revenue, or towards a reminder.',
+  'jobs.cancelConfirm': 'Cancel this job',
+  'jobs.cancelKeep': 'Keep it open',
+  'jobs.cancelFailed': 'The job could not be cancelled.',
+  'jobs.statusOpen': 'In progress',
+  'jobs.statusCancelled': 'Cancelled',
+  'jobs.noLinesYet': 'nothing entered yet',
+  'jobs.startedOn': 'started {date}',
   'jobs.listCapped':
     'Showing the {limit} most recent jobs. Narrow the filters to see older ones.',
 
@@ -553,12 +571,29 @@ export const en = {
   'newJob.noCustomers': 'No customers yet.',
   'newJob.changeCustomerTitle': 'Change the customer to {customer}?',
   'newJob.changeCustomerNewTitle': 'Change to a new customer?',
-  'newJob.changeCustomerLines.one': 'The line entered for {customer} will be discarded.',
+  'newJob.changeCustomerLines.one': 'Job #{number} has one line entered for {customer}.',
   'newJob.changeCustomerLines.other':
-    'The {count} lines entered for {customer} will be discarded.',
+    'Job #{number} has {count} lines entered for {customer}.',
   'newJob.changeCustomerWhy':
-    'A next-due reading belongs to the car it was measured on, so lines do not carry across to another customer\u2019s job.',
-  'newJob.changeCustomerConfirm': 'Change customer and discard',
+    'It will be cancelled and a new job started. Nothing is deleted \u2014 a cancelled job stays on file with everything typed on it, and a next-due reading belongs to the car it was measured on.',
+  'newJob.changeCustomerConfirm': 'Cancel and start a new job',
+  'newJob.jobNumber': 'Job #{number}',
+  'newJob.jobOpened': 'Job #{number} is open. Everything from here is saved as you go.',
+  'newJob.jobCreateFailed':
+    'The job could not be started, so nothing is being saved yet.',
+  'newJob.jobSaveFailedInline': 'The last change did not save.',
+  'newJob.retryJob': 'Try again',
+  'newJob.resumeTitle': 'Unfinished jobs',
+  'newJob.resumeCount.one': 'One job was started and not finished.',
+  'newJob.resumeCount.other': '{count} jobs were started and not finished.',
+  'newJob.resumeAction': 'Resume',
+  'newJob.resumeDismiss': 'Start a new one',
+  'newJob.resumeLoadFailed': 'That job could not be opened.',
+  'newJob.resumeNothing': 'nothing entered yet',
+  'newJob.vehicleMissing':
+    'The vehicle on this job is no longer on this customer. Pick one, or carry on without.',
+  'newJob.complete': 'Complete job',
+  'newJob.completing': 'Completing\u2026',
   'newJob.noCustomerMatch': 'No customer matches \u201C{query}\u201D.',
   'newJob.noVehicleForJob': 'No vehicle for this job',
   'newJob.roadside': 'Roadside or counter sale',
