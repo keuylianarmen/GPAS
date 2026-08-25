@@ -1886,7 +1886,7 @@ function CustomerChangeConfirm({
           number: jobNo,
         })}
       </p>
-      <p className="field-note">{t('newJob.changeCustomerWhy', { number: jobNo })}</p>
+      <p className="field-note">{t('newJob.changeCustomerWhy')}</p>
 
       <div className="confirm-row">
         <button type="button" className="btn btn--dark btn--small" onClick={onConfirm}>

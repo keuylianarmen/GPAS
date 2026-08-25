@@ -494,7 +494,7 @@ export const en = {
   'jobs.discardJob': 'Discard',
   'jobs.discardTitle': 'Discard job #{number}?',
   'jobs.discardBody':
-    'The job and everything entered on it are deleted for good. There is no undo. Job numbers do not fill gaps, so #{number} will not be used again.',
+    'The job and everything entered on it are deleted for good.',
   'jobs.discardConfirm': 'Delete this job',
   'jobs.discardKeep': 'Keep it',
   'jobs.statusOpen': 'In progress',
@@ -574,8 +574,7 @@ export const en = {
   'newJob.changeCustomerLines.one': 'Job #{number} has one line entered for {customer}.',
   'newJob.changeCustomerLines.other':
     'Job #{number} has {count} lines entered for {customer}.',
-  'newJob.changeCustomerWhy':
-    'It and everything on it are deleted, and a new job is started. There is no undo, and job numbers do not fill gaps \u2014 #{number} will not be used again.',
+  'newJob.changeCustomerWhy': 'It is deleted for good, and a new job started.',
   'newJob.changeCustomerConfirm': 'Discard and start a new job',
   'newJob.jobNumber': 'Job #{number}',
   'newJob.jobOpened': 'Job #{number} is open. Everything from here is saved as you go.',

@@ -402,7 +402,7 @@ export default function Jobs({
               <p className="confirm-title">
                 {t('jobs.discardTitle', { number: discarding.job_no })}
               </p>
-              <p>{t('jobs.discardBody', { number: discarding.job_no })}</p>
+              <p>{t('jobs.discardBody')}</p>
               {discardError && (
                 <p className="error" role="alert">
                   {discardError}

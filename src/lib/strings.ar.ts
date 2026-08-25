@@ -510,8 +510,7 @@ export const ar: Catalogue = {
   'jobs.resume': 'متابعة',
   'jobs.discardJob': 'حذف',
   'jobs.discardTitle': 'حذف الأمر رقم {number}؟',
-  'jobs.discardBody':
-    'يُحذف الأمر وكل ما أُدخل فيه نهائيًا، ولا يمكن التراجع. أرقام الأوامر لا تُعاد، فالرقم {number} لن يُستخدم مرة أخرى.',
+  'jobs.discardBody': 'يُحذف الأمر وكل ما أُدخل فيه نهائيًا.',
   'jobs.discardConfirm': 'حذف هذا الأمر',
   'jobs.discardKeep': 'الإبقاء عليه',
   'jobs.statusOpen': 'قيد التنفيذ',
@@ -593,8 +592,7 @@ export const ar: Catalogue = {
   'newJob.changeCustomerLines.few': 'الأمر رقم {number} فيه {count} أسطر مُدخلة لـ{customer}.',
   'newJob.changeCustomerLines.many': 'الأمر رقم {number} فيه {count} سطرًا مُدخلًا لـ{customer}.',
   'newJob.changeCustomerLines.other': 'الأمر رقم {number} فيه {count} سطر مُدخل لـ{customer}.',
-  'newJob.changeCustomerWhy':
-    'سيُحذف هو وكل ما فيه، ويُفتح أمر جديد. لا يمكن التراجع، وأرقام الأوامر لا تُعاد — الرقم {number} لن يُستخدم مرة أخرى.',
+  'newJob.changeCustomerWhy': 'يُحذف نهائيًا ويُفتح أمر جديد.',
   'newJob.changeCustomerConfirm': 'حذف الأمر وفتح أمر جديد',
   'newJob.jobNumber': 'الأمر رقم {number}',
   'newJob.jobOpened': 'الأمر رقم {number} مفتوح. كل ما يلي يُحفظ أولًا بأول.',
