@@ -1339,29 +1339,65 @@
   white-space: nowrap;
 }
 
-/* Unfinished jobs offered on arrival at New job. */
-.resume-strip {
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.resume-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+/* Unfinished jobs offered on arrival at New job.
+   A list of rows, not a panel. It was a bordered card with a heading and an
+   explanatory line, which made a small shortcut heavier than the customer
+   picker below it — and it carried .notice's crimson edge, which reads as an
+   error for something that is only an offer. */
+.resume-list {
+  margin-bottom: 16px;
 }
 
 .resume-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  width: 100%;
-  padding-top: 10px;
-  border-top: 1px solid var(--hairline);
+  padding: 7px 0;
   font-size: 13px;
+}
+
+/* Separation between rows without a container around them. Only between:
+   a single row is the whole list and has nothing to be separated from. */
+.resume-row + .resume-row {
+  border-top: 1px solid var(--hairline);
+}
+
+/* The same amber dot the Jobs in-progress rows carry, so an unfinished job
+   looks like one wherever it appears. Static here — the pulse there says
+   "you are watching this"; this is a door on the way past. */
+.resume-line::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-end: 8px;
+  vertical-align: middle;
+  background: var(--amber);
+  border-radius: 50%;
+}
+
+.resume-line {
+  min-width: 0;
+  color: var(--muted);
+}
+
+.resume-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: auto;
+}
+
+/* The overflow line is a count, not a job — no marker. */
+.resume-row--more .resume-line::before {
+  display: none;
+}
+
+.resume-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
 }
 
 /* Vehicle change confirmation ------------------------------------------ */

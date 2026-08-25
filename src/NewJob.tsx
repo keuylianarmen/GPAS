@@ -185,10 +185,13 @@ function describeVehicle(vehicle: Vehicle): string {
 export default function NewJob({
   resumeJobId,
   onResumeHandled,
+  onSeeJobs,
 }: {
   /** An open job to open straight into, handed over from the Jobs screen. */
   resumeJobId?: string | null
   onResumeHandled?: () => void
+  /** Where the unfinished jobs this strip does not list can all be seen. */
+  onSeeJobs?: () => void
 }) {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -1269,6 +1272,7 @@ export default function NewJob({
               busy={resuming}
               onResume={resumeJob}
               onDismiss={() => setResumable([])}
+              onSeeAll={onSeeJobs}
             />
           )}
 
@@ -1917,69 +1921,105 @@ export default function NewJob({
  * share a car: no vehicle has been chosen for the incoming one yet, so there
  * is nothing to compare against, and the wording says what is true either way.
  */
+/** Above this many, the rest are pointed at rather than listed. */
+const RESUME_SHOWN = 3
+
 /**
  * Jobs that were started and never finished, offered on arrival.
  *
- * Not resumed automatically, and not a dialog. The person at the counter is
- * the only one who knows whether the car in front of them is the car this job
- * was opened for, and starting a new job is the far commoner intent — so the
- * list sits above the customer picker and gets out of the way when ignored.
+ * A shortcut, not a warning — so no card, no heading, and no sentence saying
+ * what the rows below it already say. Each row identifies a job and offers to
+ * open it; that is the whole feature. It was a bordered panel with a title and
+ * an explanatory line, which made a small aside larger than the customer
+ * picker underneath it.
+ *
+ * The marker is the amber dot the Jobs screen uses for the same jobs, so the
+ * two places agree about what an unfinished job looks like. It does not
+ * breathe here. The pulse there means "this section is live and you are
+ * watching it"; this list is a door you walk through on the way past, and it
+ * disappears the moment a customer is chosen.
  */
 function ResumeStrip({
   jobs,
   busy,
   onResume,
   onDismiss,
+  onSeeAll,
 }: {
   jobs: ResumableJob[]
   busy: boolean
   onResume: (job: Job) => void
   onDismiss: () => void
+  onSeeAll?: () => void
 }) {
-  return (
-    <div className="card notice resume-strip">
-      <div className="resume-head">
-        <p className="confirm-title">{t('newJob.resumeTitle')}</p>
-        <button
-          type="button"
-          className="btn btn--quiet btn--small"
-          onClick={onDismiss}
-          disabled={busy}
-        >
-          {t('newJob.resumeDismiss')}
-        </button>
-      </div>
-      <p className="muted">{tn(jobs.length, 'newJob.resumeCount')}</p>
+  const shown = jobs.slice(0, RESUME_SHOWN)
+  const hidden = jobs.length - shown.length
+  const single = jobs.length === 1
 
-      {jobs.map((row) => {
+  const dismiss = (
+    <button
+      type="button"
+      className="btn btn--quiet btn--small"
+      onClick={onDismiss}
+      disabled={busy}
+    >
+      {t('newJob.resumeDismiss')}
+    </button>
+  )
+
+  return (
+    <div className="resume-list">
+      {shown.map((row) => {
         const lines = row.job_items?.[0]?.count ?? 0
         return (
           <div className="resume-row" key={row.id}>
-            <div>
-              <div dir="auto">
-                {t('newJob.jobNumber', { number: row.job_no })}
-                {' \u00B7 '}
-                {row.customers
-                  ? customerLabel(row.customers)
-                  : t('jobs.unknownCustomer')}
-              </div>
-              <div className="muted figures" dir="auto">
-                {jobVehicleLabel(row.vehicle_id, row.vehicles)}
-                {' \u00B7 '}
-                {lines === 0 ? t('newJob.resumeNothing') : tn(lines, 'jobs.lines')}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn btn--ghost btn--small"
-              onClick={() => onResume(row)}
-              disabled={busy}
-            >
-              {t('newJob.resumeAction')}
-            </button>
+            <span className="resume-line figures" dir="auto">
+              {t('newJob.jobNumber', { number: row.job_no })}
+              {' \u00B7 '}
+              {row.customers ? customerLabel(row.customers) : t('jobs.unknownCustomer')}
+              {' \u00B7 '}
+              {lines === 0 ? t('newJob.resumeNothing') : tn(lines, 'jobs.lines')}
+            </span>
+            <span className="resume-actions">
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                onClick={() => onResume(row)}
+                disabled={busy}
+              >
+                {t('newJob.resumeAction')}
+              </button>
+              {/* On the row itself when it is the only one, so the whole
+                  feature is a single line. With several, it belongs to the
+                  list rather than to the last job in it. */}
+              {single && dismiss}
+            </span>
           </div>
         )
       })}
+
+      {/* Never a silent cap: what is not listed is named and pointed at. */}
+      {hidden > 0 && (
+        <div className="resume-row resume-row--more">
+          <span className="resume-line figures" dir="auto">
+            {tn(hidden, 'newJob.resumeMore')}
+          </span>
+          {onSeeAll && (
+            <span className="resume-actions">
+              <button
+                type="button"
+                className="btn btn--quiet btn--small"
+                onClick={onSeeAll}
+                disabled={busy}
+              >
+                {t('newJob.resumeSeeAll')}
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
+      {!single && <div className="resume-foot">{dismiss}</div>}
     </div>
   )
 }

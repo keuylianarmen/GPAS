@@ -273,6 +273,7 @@ function Shell({ staff }: { staff: Staff }) {
           <NewJob
             resumeJobId={resumeJobId}
             onResumeHandled={() => setResumeJobId(null)}
+            onSeeJobs={() => setTab('jobs')}
           />
         ) : (
           <Dashboard onNavigate={setTab} />
