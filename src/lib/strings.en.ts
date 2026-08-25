@@ -489,7 +489,7 @@ export const en = {
   'jobs.editedOn': 'edited {date}',
   'jobs.openSection': 'In progress',
   'jobs.openHint':
-    'Started at the counter and not finished. Resume to carry on, or discard to throw it away.',
+    'Started at the counter and not finished. Resume to carry on, or discard.',
   'jobs.resume': 'Resume',
   'jobs.discardJob': 'Discard',
   'jobs.discardTitle': 'Discard job #{number}?',

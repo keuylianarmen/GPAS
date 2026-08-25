@@ -506,7 +506,7 @@ export const ar: Catalogue = {
   'jobs.editedOn': 'عُدّل في {date}',
   'jobs.openSection': 'قيد التنفيذ',
   'jobs.openHint':
-    'بدأت على الكاونتر ولم تُنجز بعد. تابع للمتابعة، أو احذفها للتخلص منها.',
+    'بدأت على الكاونتر ولم تُنجز بعد. تابع للمتابعة، أو احذفها.',
   'jobs.resume': 'متابعة',
   'jobs.discardJob': 'حذف',
   'jobs.discardTitle': 'حذف الأمر رقم {number}؟',
