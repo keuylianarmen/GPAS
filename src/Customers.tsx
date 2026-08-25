@@ -664,6 +664,13 @@ function CustomerDetail({
                         {km(vehicle.current_odometer)} km
                       </div>
                     )}
+                    {/* A phrase carrying a figure rather than a bare figure,
+                        so the unit stays attached to its number in Arabic. */}
+                    {vehicle.km_per_day !== null && (
+                      <div className="vehicle-usage figures" dir="auto">
+                        {t('detail.kmPerDay', { km: km(vehicle.km_per_day) })}
+                      </div>
+                    )}
                     <button
                       type="button"
                       className="btn btn--quiet btn--small"

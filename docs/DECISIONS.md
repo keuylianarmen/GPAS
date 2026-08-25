@@ -23,6 +23,16 @@ replaced by extracting the shared function both triggers now call.
 car decides when it comes back — a taxi and a weekend car with the same oil change are not
 due at the same time.
 
+**The oil interval belongs to the grade, and the date to the car's usage.**
+One pair per service prefilled 5,000 km / 6 months into every oil change, so full
+synthetic customers were called back at half the interval the oil is rated for. Migration
+24 put `reminder_km` / `reminder_months` on the `oil_grade` lookup rows and `km_per_day`
+on the vehicle; a line's date becomes whichever of the two limits arrives first. This
+changes the starting point, not who decides — it is still a prefill, still overwritable,
+and still only written into fields nobody has typed in. `km_per_day` is optional
+throughout: without it the months cap stands alone and the reminder is less precise,
+never wrong.
+
 **Two-way sync between line and reminder.**
 The value lives in two places, so a trigger keeps them in step in both directions, guarded
 by `pg_trigger_depth()`. This means adjusting a reminder rewrites what the job line says

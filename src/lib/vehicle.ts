@@ -1,5 +1,5 @@
 import type { Database } from '../types/database'
-import { parseOptionalInteger } from './parse'
+import { parseOptionalInteger, parseOptionalPositiveInteger } from './parse'
 import { t } from './i18n'
 
 type Vehicle = Database['public']['Tables']['vehicles']['Row']
@@ -14,10 +14,20 @@ export type VehicleDraft = {
   year: string
   category: string
   odometer: string
+  kmPerDay: string
 }
 
 export function emptyVehicleDraft(): VehicleDraft {
-  return { plate: '', vin: '', make: '', model: '', year: '', category: '', odometer: '' }
+  return {
+    plate: '',
+    vin: '',
+    make: '',
+    model: '',
+    year: '',
+    category: '',
+    odometer: '',
+    kmPerDay: '',
+  }
 }
 
 /** A block the user never touched is skipped rather than inserted as an empty row. */
@@ -46,6 +56,11 @@ export function vehicleInsertFrom(
   const odometer = parseOptionalInteger(draft.odometer)
   if (odometer === 'invalid') return { error: t('vehicle.badOdometer') }
 
+  // Positive, not merely whole: a car doing zero km a day would divide an oil
+  // interval into a date that never arrives.
+  const kmPerDay = parseOptionalPositiveInteger(draft.kmPerDay)
+  if (kmPerDay === 'invalid') return { error: t('vehicle.badKmPerDay') }
+
   return {
     customer_id: customerId,
     plate: draft.plate.trim() || null,
@@ -55,6 +70,7 @@ export function vehicleInsertFrom(
     year,
     category: draft.category.trim() || null,
     current_odometer: odometer,
+    km_per_day: kmPerDay,
   }
 }
 
@@ -67,6 +83,7 @@ export function draftFromVehicle(vehicle: Vehicle): VehicleDraft {
     year: vehicle.year === null ? '' : String(vehicle.year),
     category: vehicle.category ?? '',
     odometer: vehicle.current_odometer === null ? '' : String(vehicle.current_odometer),
+    kmPerDay: vehicle.km_per_day === null ? '' : String(vehicle.km_per_day),
   }
 }
 
@@ -83,6 +100,9 @@ export function vehicleUpdateFrom(
   const odometer = parseOptionalInteger(draft.odometer)
   if (odometer === 'invalid') return { error: t('vehicle.badOdometer') }
 
+  const kmPerDay = parseOptionalPositiveInteger(draft.kmPerDay)
+  if (kmPerDay === 'invalid') return { error: t('vehicle.badKmPerDay') }
+
   return {
     plate: draft.plate.trim() || null,
     vin: draft.vin.trim() || null,
@@ -91,6 +111,7 @@ export function vehicleUpdateFrom(
     year,
     category: draft.category.trim() || null,
     current_odometer: odometer,
+    km_per_day: kmPerDay,
   }
 }
 

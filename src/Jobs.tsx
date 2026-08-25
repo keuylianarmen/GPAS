@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Database, Json } from './types/database'
 import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
-import { dueDefaults } from './lib/due'
+import { DECIDED_DUE, dueDefaults, gradeDue, regradeDue } from './lib/due'
+import type { DueMark } from './lib/due'
+import { useGradeIntervals } from './lib/useGradeIntervals'
 import {
   emptyFluidDraft,
   fluidDraftFromDetails,
@@ -32,6 +34,7 @@ import TireFields from './components/TireFields'
 import OdometerHint from './components/OdometerHint'
 import type { OdometerReference } from './components/OdometerHint'
 import VehicleDialog from './components/VehicleDialog'
+import GradeDueHint from './components/GradeDueHint'
 
 type Job = Database['public']['Tables']['jobs']['Row']
 type Vehicle = Database['public']['Tables']['vehicles']['Row']
@@ -385,6 +388,8 @@ type ItemDraft = {
   subPrice: string
   nextDueKm: string
   nextDueDate: string
+  /** Which of the two the app may still rewrite. See lib/due. */
+  dueMark: DueMark
   fluid: FluidDraft
   tire: TireDraft
   /** The line's stored details, so a save preserves keys this screen does not edit. */
@@ -406,6 +411,9 @@ function draftFromItem(item: JobItemWithSub): ItemDraft {
     subPrice: String(item.sub_price ?? 0),
     nextDueKm: item.next_due_odometer === null ? '' : String(item.next_due_odometer),
     nextDueDate: item.next_due_date ?? '',
+    // A saved line's due point was settled at that visit, prefilled or typed.
+    // Changing the grade afterwards must not reopen it.
+    dueMark: DECIDED_DUE,
     fluid: fluidDraftFromDetails(item.details),
     tire: tireDraftFromDetails(item.details),
     details: item.details,
@@ -463,6 +471,9 @@ function JobDialog({
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null)
   const [nextKey, setNextKey] = useState(1)
   const [pickingService, setPickingService] = useState<string | 'new' | null>(null)
+
+  // One query for the dialog: a line cannot call a hook of its own.
+  const gradeInterval = useGradeIntervals()
 
   const serviceById = useMemo(
     () => new Map(services.map((service) => [service.id, service])),
@@ -529,6 +540,13 @@ function JobDialog({
       ? null
       : { value: vehicle.current_odometer, source: 'vehicle' }
   }, [jobOdometer, linkable, vehicleId])
+
+  // Follows the pending vehicle, so relinking the job and then picking a grade
+  // computes against the car the line will actually belong to.
+  const kmPerDay = useMemo(
+    () => linkable.find((row) => row.id === vehicleId)?.km_per_day ?? null,
+    [linkable, vehicleId],
+  )
 
   function updateDraft(key: string, patch: Partial<ItemDraft>) {
     setDrafts((current) =>
@@ -850,6 +868,30 @@ function JobDialog({
           // raises them for every line when a vehicle is attached.
           const wontCreate = remindable && hasDue && vehicleId === ''
 
+          // What the grade now on this line implies. Null unless the chosen
+          // value carries an interval, which today only oil grades do.
+          const interval = gradeInterval(
+            service?.fluid_grade_list ?? null,
+            draft.fluid.grade,
+          )
+          // The job's own date, not today — this line belongs to that visit.
+          const graded = gradeDue(service, interval, jobOdometer, kmPerDay, job.start_date)
+
+          // Marked only where the app actually put something, and never on a
+          // saved line: its due point was settled at that visit.
+          const kmIsPrefill = draft.dueMark.km && draft.nextDueKm !== ''
+          const dateIsPrefill = draft.dueMark.date && draft.nextDueDate !== ''
+
+          // The hint explains the date in the box, so it is shown only while
+          // that is still the date this computation produces. Typing over it
+          // drops the mark; relinking the job to a car with a different
+          // average moves the computation out from under it.
+          const explainDue =
+            graded !== null &&
+            interval !== null &&
+            draft.dueMark.date &&
+            graded.nextDueDate === draft.nextDueDate
+
           return (
             <div className="card line" key={draft.key}>
               <div className="line-main">
@@ -904,7 +946,25 @@ function JobDialog({
                 <FluidFields
                   service={service}
                   draft={draft.fluid}
-                  onChange={(next) => updateDraft(draft.key, { fluid: next })}
+                  onChange={(next) =>
+                    updateDraft(draft.key, {
+                      fluid: next,
+                      // A new grade is a new prefill, for whichever fields are
+                      // still the app's to write — on a saved line, neither.
+                      ...(next.grade === draft.fluid.grade
+                        ? {}
+                        : regradeDue(
+                            draft,
+                            gradeDue(
+                              service,
+                              gradeInterval(service.fluid_grade_list, next.grade),
+                              jobOdometer,
+                              kmPerDay,
+                              job.start_date,
+                            ),
+                          )),
+                    })
+                  }
                   disabled={saving}
                 />
               )}
@@ -931,13 +991,23 @@ function JobDialog({
                       <span>
                         {t('jobEdit.nextDueAt')}{' '}
                         <span className="field-hint">{t('common.km')}</span>
+                        {kmIsPrefill && (
+                          <>
+                            {' '}
+                            <span className="field-hint">{t('common.suggested')}</span>
+                          </>
+                        )}
                       </span>
                       <input
-                        className="num"
+                        className={kmIsPrefill ? 'num is-suggested' : 'num'}
                         inputMode="numeric"
                         value={draft.nextDueKm}
                         onChange={(event) =>
-                          updateDraft(draft.key, { nextDueKm: event.target.value })
+                          updateDraft(draft.key, {
+                            nextDueKm: event.target.value,
+                            // Typed is decided: no later grade may rewrite it.
+                            dueMark: { ...draft.dueMark, km: false },
+                          })
                         }
                         disabled={saving}
                       />
@@ -947,18 +1017,41 @@ function JobDialog({
                       />
                     </label>
                     <label className="field">
-                      <span>{t('jobEdit.nextDueBy')}</span>
+                      <span>
+                        {t('jobEdit.nextDueBy')}
+                        {dateIsPrefill && (
+                          <>
+                            {' '}
+                            <span className="field-hint">{t('common.suggested')}</span>
+                          </>
+                        )}
+                      </span>
                       <input
-                        className="num"
+                        className={dateIsPrefill ? 'num is-suggested' : 'num'}
                         type="date"
                         value={draft.nextDueDate}
                         onChange={(event) =>
-                          updateDraft(draft.key, { nextDueDate: event.target.value })
+                          updateDraft(draft.key, {
+                            nextDueDate: event.target.value,
+                            dueMark: { ...draft.dueMark, date: false },
+                          })
                         }
                         disabled={saving}
                       />
                     </label>
                   </div>
+                  {explainDue && graded && interval && (
+                    <GradeDueHint
+                      // label_en is NOT NULL, so it is always a real fallback.
+                      grade={
+                        localised(interval.label_en, interval.label_ar) ?? interval.label_en
+                      }
+                      intervalKm={interval.reminder_km}
+                      intervalMonths={interval.reminder_months}
+                      kmPerDay={kmPerDay}
+                      due={graded}
+                    />
+                  )}
                   {noReminder && (
                     <p className="line-flag">
                       {t('jobEdit.noReminderBlank')}

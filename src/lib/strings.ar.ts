@@ -70,6 +70,7 @@ export const ar: Catalogue = {
   'vehicle.numberedNamed': 'مركبة {number} ({label})',
   'vehicle.badYear': 'سنة الصنع غير صالحة.',
   'vehicle.badOdometer': 'قراءة العداد غير صالحة.',
+  'vehicle.badKmPerDay': 'معدّل الكيلومترات اليومي غير صالح — أدخل عددًا صحيحًا أكبر من صفر، أو اتركه فارغًا.',
 
   'odometer.lower': 'القراءة أقل من قراءة المركبة الحالية — عادةً خطأ إدخال، إلا إذا غُيّر العداد.',
   'odometer.jump': 'القراءة أعلى بكثير من الحالية — تأكد من عدد الخانات.',
@@ -145,6 +146,10 @@ export const ar: Catalogue = {
   'vehicleForm.category': 'الفئة',
   'vehicleForm.odometer': 'العداد',
   'vehicleForm.odometerPlaceholder': '84210',
+  'vehicleForm.kmPerDay': 'كم كيلومترًا تقطع السيارة في اليوم وسطيًا؟',
+  'vehicleForm.kmPerDayPlaceholder': '40',
+  'vehicleForm.kmPerDayNote':
+    'تقدير تقريبي يكفي. يحوّل مسافة درجة الزيت إلى تاريخ — وبدونه تبقى الأشهر وحدها.',
   'vehicleForm.addMake': '+ إضافة ماركة',
   'vehicleForm.modelSuggestions': 'اقتراحات الطراز',
   'vehicleForm.loadingModels': 'جارٍ جلب طرازات هذه الماركة…',
@@ -168,6 +173,30 @@ export const ar: Catalogue = {
   'odoHint.onJob': 'على هذا الأمر',
   'odoHint.onVehicle': 'على المركبة',
   'odoHint.nowAt': 'حاليًا عند {km} كم',
+
+  // ── grade due hint ───────────────────────────────────────────────
+  'gradeDue.interval': '{grade}: كل {km} كم أو {months}.',
+  'gradeDue.intervalKm': '{grade}: كل {km} كم.',
+  'gradeDue.intervalMonths': '{grade}: كل {months}.',
+  'gradeDue.byUsage':
+    'على {perDay} كم في اليوم تكفي المسافة {days}، وهي الأقرب — الاستحقاق التالي {date}.',
+  'gradeDue.byMonths':
+    'على {perDay} كم في اليوم تحتاج المسافة {days}، فيسبقها الحدّ الزمني — الاستحقاق التالي {date}.',
+  'gradeDue.noUsage':
+    'لا يوجد معدّل كيلومترات يومي لهذه السيارة، فالحدّ الزمني وحده هو ما يحدّد التاريخ — الاستحقاق التالي {date}.',
+  'gradeDue.noDate':
+    'لا يوجد ما يُحسب منه تاريخ — يلزم عدد أشهر للدرجة، أو معدّل كيلومترات يومي للسيارة.',
+  'gradeDue.due': 'الاستحقاق التالي {date}.',
+  'gradeDue.months.one': 'شهر واحد',
+  'gradeDue.months.two': 'شهرين',
+  'gradeDue.months.few': '{count} أشهر',
+  'gradeDue.months.many': '{count} شهرًا',
+  'gradeDue.months.other': '{count} شهر',
+  'gradeDue.days.one': 'يومًا واحدًا',
+  'gradeDue.days.two': 'يومين',
+  'gradeDue.days.few': '{count} أيام',
+  'gradeDue.days.many': '{count} يومًا',
+  'gradeDue.days.other': '{count} يوم',
 
   // ── mutes ──────────────────────────────────────────────────────────────
   'mute.title': 'كتم التذكيرات',
@@ -383,6 +412,7 @@ export const ar: Catalogue = {
   'detail.noVehicles': 'لا مركبات مسجّلة.',
   'detail.noPlate': 'بدون لوحة',
   'detail.noVehicleDetails': 'مركبة، بدون تفاصيل',
+  'detail.kmPerDay': '{km} كم في اليوم',
   'detail.jobHistory': 'سجل الأوامر',
   'detail.noJobs': 'لا أوامر بعد.',
   'detail.jobPrefix': 'أمر #',

@@ -415,6 +415,8 @@ export type Database = {
           label_ar: string | null
           label_en: string
           list_key: string
+          reminder_km: number | null
+          reminder_months: number | null
           sort_order: number
           value: string
         }
@@ -424,6 +426,8 @@ export type Database = {
           label_ar?: string | null
           label_en: string
           list_key: string
+          reminder_km?: number | null
+          reminder_months?: number | null
           sort_order?: number
           value: string
         }
@@ -433,6 +437,8 @@ export type Database = {
           label_ar?: string | null
           label_en?: string
           list_key?: string
+          reminder_km?: number | null
+          reminder_months?: number | null
           sort_order?: number
           value?: string
         }
@@ -1195,6 +1201,7 @@ export type Database = {
           current_odometer: number | null
           customer_id: string
           id: string
+          km_per_day: number | null
           make: string | null
           model: string | null
           notes: string | null
@@ -1208,6 +1215,7 @@ export type Database = {
           current_odometer?: number | null
           customer_id: string
           id?: string
+          km_per_day?: number | null
           make?: string | null
           model?: string | null
           notes?: string | null
@@ -1221,6 +1229,7 @@ export type Database = {
           current_odometer?: number | null
           customer_id?: string
           id?: string
+          km_per_day?: number | null
           make?: string | null
           model?: string | null
           notes?: string | null

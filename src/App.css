@@ -850,6 +850,14 @@
   white-space: nowrap;
 }
 
+/* How hard the car is driven, under the reading it explains. Smaller, because
+   it is an estimate the owner gave rather than a number off the dashboard. */
+.vehicle-usage {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .list-row {
   display: flex;
   align-items: flex-start;
@@ -1580,6 +1588,16 @@
 /* At or below the current reading: already past, so almost certainly a typo. */
 .odo-gap--warn {
   color: var(--amber);
+}
+
+/* Why the next-due pair says what it says. Sits under both fields, quiet as a
+   note rather than framed as a flag: nothing here is wrong, it is arithmetic
+   the reader is free to overrule. */
+.due-hint {
+  margin: 8px 0 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
 }
 
 /* Fluid capture — one compact row beside the prices, not a form per line. */

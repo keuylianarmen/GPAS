@@ -141,6 +141,27 @@ export default function VehicleFields({
         />
       </label>
       {odometerNote}
+
+      {/* Directly under the reading, because it is the same conversation: what
+          the car has done, then how fast it does it. Worded as the question
+          actually asked at the counter rather than as a spec — nobody knows
+          their car's "daily average", everybody knows roughly how far they
+          drive. An estimate is the point; blank is a fine answer. */}
+      <label className="field field--narrow">
+        <span>
+          {t('vehicleForm.kmPerDay')}{' '}
+          <span className="field-hint">{t('common.optional')}</span>
+        </span>
+        <input
+          className="num"
+          inputMode="numeric"
+          value={draft.kmPerDay}
+          onChange={set('kmPerDay')}
+          placeholder={t('vehicleForm.kmPerDayPlaceholder')}
+          disabled={disabled}
+        />
+      </label>
+      <p className="field-note">{t('vehicleForm.kmPerDayNote')}</p>
     </>
   )
 }

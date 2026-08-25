@@ -3,7 +3,9 @@ import type { Database } from './types/database'
 import { supabase } from './lib/supabase'
 import { km, money } from './lib/format'
 import { todayIso } from './lib/date'
-import { dueDefaults } from './lib/due'
+import { UNTOUCHED_DUE, dueDefaults, gradeDue, regradeDue } from './lib/due'
+import type { DueMark } from './lib/due'
+import { useGradeIntervals } from './lib/useGradeIntervals'
 import { emptyFluidDraft, usesFluid } from './lib/fluid'
 import { lineDetails } from './lib/lineDetails'
 import type { FluidDraft } from './lib/fluid'
@@ -22,6 +24,7 @@ import PriceFields from './components/PriceFields'
 import FluidFields from './components/FluidFields'
 import TireFields from './components/TireFields'
 import OdometerHint from './components/OdometerHint'
+import GradeDueHint from './components/GradeDueHint'
 import type { OdometerReference } from './components/OdometerHint'
 import AddCustomerDialog from './components/AddCustomerDialog'
 import ServiceDialog from './components/ServiceDialog'
@@ -49,6 +52,8 @@ type Line = {
   subcontractorId: string | null
   nextDueKm: string
   nextDueDate: string
+  /** Which of the two the app may still rewrite. See lib/due. */
+  dueMark: DueMark
   fluid: FluidDraft
   tire: TireDraft
 }
@@ -116,6 +121,9 @@ export default function NewJob() {
   const nextLineKey = useRef(1)
 
   const [paymentMethod, setPaymentMethod] = useState('')
+
+  // One query for the screen: a line cannot call a hook of its own.
+  const gradeInterval = useGradeIntervals()
 
   const continueRef = useRef<HTMLButtonElement>(null)
   const servicePickerOpened = useRef(false)
@@ -247,6 +255,13 @@ export default function NewJob() {
       : { value: vehicle.current_odometer, source: 'vehicle' }
   }, [jobOdometer, vehicles, vehicleId])
 
+  // Only the linked vehicle has a daily average, so a counter sale computes
+  // its dates from the months alone.
+  const kmPerDay = useMemo(
+    () => vehicles.find((row) => row.id === vehicleId)?.km_per_day ?? null,
+    [vehicles, vehicleId],
+  )
+
   const serviceById = useMemo(
     () => new Map(services.map((service) => [service.id, service])),
     [services],
@@ -292,6 +307,7 @@ export default function NewJob() {
       subcontractorId: null,
       nextDueKm: '',
       nextDueDate: '',
+      dueMark: UNTOUCHED_DUE,
       fluid: emptyFluidDraft(),
       tire: emptyTireDraft(),
     }
@@ -680,6 +696,28 @@ export default function NewJob() {
             // The reminder trigger needs a vehicle; the vehicle step is optional.
             const wontCreate = remindable && hasDue && vehicleId === null
 
+            // What the grade now on this line implies, recomputed each render
+            // from the same inputs the prefill used. Null unless the chosen
+            // value carries an interval, which today only oil grades do.
+            const interval = gradeInterval(service?.fluid_grade_list ?? null, line.fluid.grade)
+            const graded = gradeDue(service, interval, jobOdometer, kmPerDay, todayIso())
+
+            // Marked only where the app actually put something. An empty field
+            // is the app's to fill but has nothing to advertise.
+            const kmIsPrefill = line.dueMark.km && line.nextDueKm !== ''
+            const dateIsPrefill = line.dueMark.date && line.nextDueDate !== ''
+
+            // The hint explains the date in the box, so it is shown only while
+            // that is still the date this computation produces. Typing over it
+            // drops the mark; swapping to a vehicle with a different average
+            // moves the computation out from under it. Either way the
+            // explanation would be describing something that is not there.
+            const explainDue =
+              graded !== null &&
+              interval !== null &&
+              line.dueMark.date &&
+              graded.nextDueDate === line.nextDueDate
+
             return (
               <div className="card line" key={line.key}>
                 <div className="line-main">
@@ -722,7 +760,27 @@ export default function NewJob() {
                   <FluidFields
                     service={service}
                     draft={line.fluid}
-                    onChange={(next) => updateLine(line.key, { fluid: next })}
+                    onChange={(next) =>
+                      updateLine(line.key, {
+                        fluid: next,
+                        // The interval belongs to the grade, so a new grade is a
+                        // new prefill — for whichever fields are still the
+                        // app's to write. Only on a change: editing the brand
+                        // is not a reason to move a due date.
+                        ...(next.grade === line.fluid.grade
+                          ? {}
+                          : regradeDue(
+                              line,
+                              gradeDue(
+                                service,
+                                gradeInterval(service.fluid_grade_list, next.grade),
+                                jobOdometer,
+                                kmPerDay,
+                                todayIso(),
+                              ),
+                            )),
+                      })
+                    }
                   />
                 )}
 
@@ -747,13 +805,23 @@ export default function NewJob() {
                         <span>
                           {t('newJob.nextDueAt')}{' '}
                           <span className="field-hint">{t('common.km')}</span>
+                          {kmIsPrefill && (
+                            <>
+                              {' '}
+                              <span className="field-hint">{t('common.suggested')}</span>
+                            </>
+                          )}
                         </span>
                         <input
-                          className="num"
+                          className={kmIsPrefill ? 'num is-suggested' : 'num'}
                           inputMode="numeric"
                           value={line.nextDueKm}
                           onChange={(event) =>
-                            updateLine(line.key, { nextDueKm: event.target.value })
+                            updateLine(line.key, {
+                              nextDueKm: event.target.value,
+                              // Typed is decided: no later grade may rewrite it.
+                              dueMark: { ...line.dueMark, km: false },
+                            })
                           }
                         />
                         <OdometerHint
@@ -762,17 +830,41 @@ export default function NewJob() {
                         />
                       </label>
                       <label className="field">
-                        <span>{t('newJob.nextDueBy')}</span>
+                        <span>
+                          {t('newJob.nextDueBy')}
+                          {dateIsPrefill && (
+                            <>
+                              {' '}
+                              <span className="field-hint">{t('common.suggested')}</span>
+                            </>
+                          )}
+                        </span>
                         <input
-                          className="num"
+                          className={dateIsPrefill ? 'num is-suggested' : 'num'}
                           type="date"
                           value={line.nextDueDate}
                           onChange={(event) =>
-                            updateLine(line.key, { nextDueDate: event.target.value })
+                            updateLine(line.key, {
+                              nextDueDate: event.target.value,
+                              dueMark: { ...line.dueMark, date: false },
+                            })
                           }
                         />
                       </label>
                     </div>
+                    {explainDue && graded && interval && (
+                      <GradeDueHint
+                        // label_en is NOT NULL, so it is always a real fallback.
+                        grade={
+                          localised(interval.label_en, interval.label_ar) ??
+                          interval.label_en
+                        }
+                        intervalKm={interval.reminder_km}
+                        intervalMonths={interval.reminder_months}
+                        kmPerDay={kmPerDay}
+                        due={graded}
+                      />
+                    )}
                     {noReminder && (
                       <p className="line-flag">
                         {t('newJob.noReminderBlank')}

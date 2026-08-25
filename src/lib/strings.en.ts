@@ -68,6 +68,8 @@ export const en = {
   'vehicle.numberedNamed': 'vehicle {number} ({label})',
   'vehicle.badYear': 'Year must be a whole number, or left blank.',
   'vehicle.badOdometer': 'Odometer must be a whole number, or left blank.',
+  'vehicle.badKmPerDay':
+    'Km a day must be a whole number above zero, or left blank.',
 
   'odometer.lower':
     'Lower than the reading on file. Legitimate after a cluster replacement, but usually a typo.',
@@ -145,6 +147,10 @@ export const en = {
   'vehicleForm.category': 'Category',
   'vehicleForm.odometer': 'Odometer',
   'vehicleForm.odometerPlaceholder': '84210',
+  'vehicleForm.kmPerDay': 'How many km a day does the car do, on average?',
+  'vehicleForm.kmPerDayPlaceholder': '40',
+  'vehicleForm.kmPerDayNote':
+    'A rough answer is enough. It turns an oil grade\u2019s distance into a date — without it, only the months apply.',
   'vehicleForm.addMake': 'Add a make',
   'vehicleForm.modelSuggestions': 'Model suggestions',
   'vehicleForm.loadingModels': 'Finding this make\u2019s models\u2026',
@@ -168,6 +174,24 @@ export const en = {
   'odoHint.onJob': 'on this job',
   'odoHint.onVehicle': 'on the vehicle',
   'odoHint.nowAt': 'Now at {km} km',
+
+  // ── grade due hint ─────────────────────────────────────────────────────
+  'gradeDue.interval': '{grade}: every {km} km or {months}.',
+  'gradeDue.intervalKm': '{grade}: every {km} km.',
+  'gradeDue.intervalMonths': '{grade}: every {months}.',
+  'gradeDue.byUsage':
+    'At {perDay} km a day that is {days}, which comes first — next due {date}.',
+  'gradeDue.byMonths':
+    'At {perDay} km a day the distance takes {days}, so the months come first — next due {date}.',
+  'gradeDue.noUsage':
+    'No km a day on this car, so only the months apply — next due {date}.',
+  'gradeDue.noDate':
+    'No date to compute from — that needs months on the grade, or km a day on the car.',
+  'gradeDue.due': 'Next due {date}.',
+  'gradeDue.months.one': '{count} month',
+  'gradeDue.months.other': '{count} months',
+  'gradeDue.days.one': '{count} day',
+  'gradeDue.days.other': '{count} days',
 
   // ── mutes ──────────────────────────────────────────────────────────────
   'mute.title': 'Mute reminders',
@@ -374,6 +398,7 @@ export const en = {
   'detail.noVehicles': 'No vehicle on file.',
   'detail.noPlate': 'No plate',
   'detail.noVehicleDetails': 'No details recorded',
+  'detail.kmPerDay': '{km} km a day',
   'detail.jobHistory': 'Job history',
   'detail.noJobs': 'No jobs yet.',
   'detail.jobPrefix': 'Job',
