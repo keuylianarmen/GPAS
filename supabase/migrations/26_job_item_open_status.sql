@@ -1,0 +1,50 @@
+-- 26_job_item_open_status.sql
+--
+-- A job line that exists before the work does.
+--
+-- ── RUN THIS FILE ALONE, AND LET IT COMMIT BEFORE RUNNING 27 ─────────────
+-- `alter type ... add value` may run inside a transaction block on PG 12+,
+-- but the new label cannot be *referenced* until that transaction commits —
+-- anything that casts to it raises `unsafe use of new value "open" of enum
+-- type item_status`. Supabase's SQL editor pools connections, so which
+-- statements share a transaction is not something this file can know. That is
+-- why the matching default change lives in 27 rather than three lines below,
+-- and why 26 does exactly one thing.
+--
+-- ── why a fourth value rather than reusing one ───────────────────────────
+-- New job now writes a line to job_items as it is entered, not at the end.
+-- trg_create_reminder is `after insert or update of status ... on job_items`
+-- and fires when a line reads 'done', so a line saved mid-entry must not read
+-- 'done' yet — otherwise the shop calls a customer back for an oil change
+-- nobody has performed.
+--
+-- 'flagged' would have done the job mechanically and cost nothing to
+-- implement. It is not what 'flagged' means: a flagged line is work somebody
+-- noticed and recommended, which is a real thing this shop will want to record
+-- and is already surfaced as v_job_totals.items_flagged. Overloading it would
+-- make that column ambiguous forever, in exchange for saving one enum value.
+--
+-- 'open' is placed before the three outcomes because it precedes them: a line
+-- is open first, then it is done, declined, or flagged for later. Enum sort
+-- order is the only thing `before` affects, and nothing orders by this column
+-- today — it is placed for the reader.
+
+alter type public.item_status add value if not exists 'open' before 'flagged';
+
+-- ── after applying ───────────────────────────────────────────────────────
+--   npx supabase gen types typescript --project-id nbbwtberzbkgikbkvsiq \
+--     > src/types/database.ts
+--
+-- Unlike 25, this one does change the generated types: item_status gains a
+-- member, and the app cannot write 'open' until that regeneration lands.
+--
+-- Verify the new label and its position:
+--
+--   select enumlabel, enumsortorder
+--     from pg_enum
+--    where enumtypid = 'public.item_status'::regtype
+--    order by enumsortorder;
+--
+-- Expected: open, flagged, declined, done.
+--
+-- Then run 27.
