@@ -5,7 +5,7 @@ import { money } from './lib/format'
 import { todayIso } from './lib/date'
 import { customerLabel } from './lib/customer'
 import { jobVehicleLabel } from './lib/vehicle'
-import { localised, t } from './lib/i18n'
+import { localised, t, tn } from './lib/i18n'
 import { CONTACT_PROBLEM_LABELS } from './lib/contactHealth'
 
 type LiveReminder = Database['public']['Views']['v_reminders_live']['Row']
@@ -23,6 +23,7 @@ type RecentJob = {
 
 type Counts = {
   jobsToday: number
+  jobsOpen: number
   revenueThisMonth: number
   customers: number
   failed: number
@@ -32,6 +33,7 @@ type Counts = {
 
 const EMPTY_COUNTS: Counts = {
   jobsToday: 0,
+  jobsOpen: 0,
   revenueThisMonth: 0,
   customers: 0,
   failed: 0,
@@ -68,6 +70,7 @@ export default function Dashboard({
 
       const [
         jobsTodayResult,
+        jobsOpenResult,
         revenueResult,
         customerResult,
         recentResult,
@@ -76,13 +79,21 @@ export default function Dashboard({
         noPhoneResult,
         noOptInResult,
       ] = await Promise.all([
-        // Completed only: an open job is work in progress, and a cancelled
-        // one never happened. Both are visible on the Jobs screen instead.
         supabase
           .from('jobs')
           .select('id', { count: 'exact', head: true })
           .eq('start_date', today)
           .eq('status', 'completed'),
+        // Counted alongside rather than filtered away. Two cars on the ramps
+        // and a tile reading zero is worse than the miscount that filtering
+        // fixed — today is the one day an open job is real work. Not scoped to
+        // today's date: a car that came in yesterday and is still on a ramp is
+        // in progress now, and this number matching the Jobs screen's section
+        // matters more than agreeing with the label's word for word.
+        supabase
+          .from('jobs')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'open'),
         // Revenue comes from the totals view; it is never stored on the job.
         supabase
           .from('v_job_totals')
@@ -119,6 +130,7 @@ export default function Dashboard({
 
       const failure =
         jobsTodayResult.error ??
+        jobsOpenResult.error ??
         revenueResult.error ??
         customerResult.error ??
         recentResult.error ??
@@ -135,6 +147,7 @@ export default function Dashboard({
 
       setCounts({
         jobsToday: jobsTodayResult.count ?? 0,
+        jobsOpen: jobsOpenResult.count ?? 0,
         revenueThisMonth: (revenueResult.data ?? []).reduce(
           (sum, row) => sum + (row.total_with_tax ?? 0),
           0,
@@ -208,6 +221,13 @@ export default function Dashboard({
         <div className="card stat">
           <div className="stat-label">{t('dash.jobsToday')}</div>
           <div className="stat-value num">{counts.jobsToday}</div>
+          {/* Only when there is something in progress. A permanent "0 in
+              progress" would be noise on every quiet afternoon. */}
+          {counts.jobsOpen > 0 && (
+            <div className="stat-sub figures" dir="auto">
+              {tn(counts.jobsOpen, 'dash.jobsInProgress')}
+            </div>
+          )}
         </div>
         <div className="card stat">
           <div className="stat-label">{t('dash.revenueThisMonth')}</div>

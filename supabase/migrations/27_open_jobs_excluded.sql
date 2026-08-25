@@ -8,12 +8,31 @@
 -- views counted it as all three the moment such a job could exist.
 --
 -- ── what did NOT need changing, and why ──────────────────────────────────
+-- CORRECTED BY 28. What this section originally said — that the revenue views
+-- needed no change — was true of their money and false of everything beside
+-- it, and v_revenue_by_month had to be fixed in 28 because of it. The claim
+-- below is now scoped to what it actually established.
+--
 -- The revenue views — v_revenue_by_category, v_revenue_by_month,
 -- v_revenue_by_service — and v_job_totals all sum lines filtered to
 -- `ji.status = 'done'`. New job writes its lines 'open' and flips them to
--- 'done' only on completion, so an open job contributes zero to all of them
--- with no change here. That is a property of 26's design, not luck, and it is
--- why the line status is a real fourth state rather than a flag on the job.
+-- 'done' only on completion, so an open job contributes zero *revenue* to all
+-- of them with no change here. That is a property of 26's design, not luck,
+-- and it is why the line status is a real fourth state rather than a flag on
+-- the job.
+--
+-- It says nothing about the columns beside the money. v_revenue_by_month also
+-- counts jobs and customers, and does it `from jobs j join lateral (…)` where
+-- the lateral protects only `revenue` — so its job count, its customer count
+-- and its avg_job_value all counted open jobs until 28 filtered them. The
+-- lesson worth keeping: "the revenue is filtered" is a statement about one
+-- column, and an aggregate view usually has several.
+--
+-- v_revenue_by_category and v_revenue_by_service are genuinely unaffected, but
+-- by their shape rather than by a filter: both inner-join job_items with
+-- `where ji.status = 'done'`, so a job with no done lines produces no rows at
+-- all and drops out of every column. Loosening either join, or moving that
+-- test into the join condition, would let open jobs back in silently. See 28.
 --
 -- v_job_totals additionally selects j.status through unfiltered, so screens
 -- that want completed-only money filter it client-side rather than needing a

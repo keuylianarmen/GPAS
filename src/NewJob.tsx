@@ -383,6 +383,13 @@ export default function NewJob({
       const [vehicleResult, lastJobResult] = await Promise.all([
         supabase.from('vehicles').select('*').eq('customer_id', customerId).order('created_at'),
         // Only to seed the default choice, so one row is enough.
+        //
+        // Deliberately not filtered to completed jobs, unlike everything that
+        // counts or totals them. This is not a statistic — it is a guess at
+        // which car is in front of the counter, and a job still open is the
+        // strongest evidence there is that the car it names is the one in the
+        // shop right now. Filtering it would make the app forget the most
+        // relevant visit precisely because it has not finished yet.
         supabase
           .from('jobs')
           .select('vehicle_id')

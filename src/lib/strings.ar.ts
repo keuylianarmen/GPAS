@@ -331,6 +331,11 @@ export const ar: Catalogue = {
 
   // ── dashboard ──────────────────────────────────────────────────────────
   'dash.loadFailed': 'تعذّر تحميل الرئيسية.',
+  'dash.jobsInProgress.one': 'أمر واحد قيد التنفيذ',
+  'dash.jobsInProgress.two': 'أمران قيد التنفيذ',
+  'dash.jobsInProgress.few': '{count} أوامر قيد التنفيذ',
+  'dash.jobsInProgress.many': '{count} أمرًا قيد التنفيذ',
+  'dash.jobsInProgress.other': '{count} أمر قيد التنفيذ',
   'dash.jobsToday': 'أوامر اليوم',
   'dash.revenueThisMonth': 'إيراد الشهر',
   'dash.remindersDue': 'تذكيرات مستحقة',

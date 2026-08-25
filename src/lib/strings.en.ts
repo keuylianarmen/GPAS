@@ -328,6 +328,8 @@ export const en = {
 
   // ── dashboard ──────────────────────────────────────────────────────────
   'dash.loadFailed': 'Could not load the dashboard.',
+  'dash.jobsInProgress.one': '{count} in progress',
+  'dash.jobsInProgress.other': '{count} in progress',
   'dash.jobsToday': 'Jobs today',
   'dash.revenueThisMonth': 'Revenue this month',
   'dash.remindersDue': 'Reminders due',
