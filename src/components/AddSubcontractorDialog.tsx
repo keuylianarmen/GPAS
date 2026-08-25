@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { invalidateSubcontractors } from '../lib/useSubcontractors'
 import { useNamePair } from '../lib/useNamePair'
+import NamePairFields from './NamePairFields'
 import Dialog from './Dialog'
 import { t } from '../lib/i18n'
 
@@ -29,9 +30,9 @@ export default function AddSubcontractorDialog({
   const names = useNamePair({ suggest: true })
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-
-  const enMark = names.markOf('en')
-  const arMark = names.markOf('ar')
+  // One press spent asking for the other name. Only ever unblocks: once set,
+  // every later press saves, whatever the request did or did not return.
+  const [nudged, setNudged] = useState(false)
 
   async function save() {
     const name = names.en.trim()
@@ -42,6 +43,20 @@ export default function AddSubcontractorDialog({
     // being rejected — the picker orders by `name` and cannot hold a gap.
     if (!name && !nameAr) {
       setError(t('sub.needName'))
+      return
+    }
+
+    // One name filled and one empty is usually someone about to get the
+    // second for free. Spend the first press fetching it rather than saving
+    // half a pair — then get out of the way permanently.
+    if (!name !== !nameAr && !nudged) {
+      setNudged(true)
+      // The empty field's placeholder becomes "Finding the…", which is what
+      // says why nothing saved. Not started if one is already on its way.
+      if (names.pending === null) {
+        if (name) names.onBlurEn()
+        else names.onBlurAr()
+      }
       return
     }
 
@@ -67,66 +82,23 @@ export default function AddSubcontractorDialog({
     onSaved(data.id)
   }
 
-  // No <form>: this opens from inside the job form, and a nested form would be
-  // invalid. Enter is wired by hand instead.
-  function onKeyDown(event: React.KeyboardEvent) {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      if (!saving) save()
-    }
-  }
-
   return (
     <Dialog title={t('sub.title')} onClose={onClose} busy={saving}>
-      <label className="field">
-        <span>
-          {t('sub.nameEn')}{' '}
-          <span className="field-hint">{t('sub.nameHint')}</span>
-          {enMark && (
-            <> <span className="field-hint">
-              {t(enMark === 'suggested' ? 'common.suggested' : 'customerForm.movedHere')}
-            </span></>
-          )}
-        </span>
-        <input
-          className={enMark ? `is-${enMark}` : undefined}
-          value={names.en}
-          onChange={(event) => names.setEn(event.target.value)}
-          onBlur={names.onBlurEn}
-          onKeyDown={onKeyDown}
-          placeholder={
-            names.pending === 'en' ? t('sub.findingEn') : t('sub.placeholderEn')
-          }
-          aria-busy={names.pending === 'en'}
-          disabled={saving}
-          autoFocus
-        />
-      </label>
-
-      <label className="field">
-        <span>
-          {t('sub.nameAr')}{' '}
-          <span className="field-hint">{t('sub.nameHint')}</span>
-          {arMark && (
-            <> <span className="field-hint">
-              {t(arMark === 'suggested' ? 'common.suggested' : 'customerForm.movedHere')}
-            </span></>
-          )}
-        </span>
-        <input
-          className={arMark ? `is-${arMark}` : undefined}
-          dir="auto"
-          value={names.ar}
-          onChange={(event) => names.setAr(event.target.value)}
-          onBlur={names.onBlurAr}
-          onKeyDown={onKeyDown}
-          placeholder={
-            names.pending === 'ar' ? t('sub.findingAr') : t('sub.placeholderAr')
-          }
-          aria-busy={names.pending === 'ar'}
-          disabled={saving}
-        />
-      </label>
+      <NamePairFields
+        names={names}
+        disabled={saving}
+        onEnterKey={save}
+        labels={{
+          labelEn: 'sub.nameEn',
+          labelAr: 'sub.nameAr',
+          hintEn: 'sub.nameHint',
+          hintAr: 'sub.nameHint',
+          placeholderEn: 'sub.placeholderEn',
+          placeholderAr: 'sub.placeholderAr',
+          findingEn: 'sub.findingEn',
+          findingAr: 'sub.findingAr',
+        }}
+      />
 
       <p className="field-note">{t('sub.note')}</p>
 
@@ -138,7 +110,9 @@ export default function AddSubcontractorDialog({
 
       <button
         type="button"
-        className="btn btn--dark btn--full"
+        className={
+          nudged && !saving ? 'btn btn--dark btn--full btn--nudge' : 'btn btn--dark btn--full'
+        }
         onClick={save}
         disabled={saving}
       >

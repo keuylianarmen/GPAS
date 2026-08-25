@@ -1773,9 +1773,42 @@
   overflow: hidden;
 }
 
+/*
+ * A press that fetched the other name instead of saving. Says "that press did
+ * something" without an error, and the empty field's "Finding the…"
+ * placeholder is what says what. One shot: it only ever fires on the press
+ * that spent itself, and the next press saves.
+ *
+ * translateX has no logical form, but a shake is symmetric — it reads the same
+ * in either direction.
+ */
+.btn--nudge {
+  animation: nudge 320ms ease;
+}
+
+@keyframes nudge {
+  0%,
+  100% {
+    transform: none;
+  }
+
+  25% {
+    transform: translateX(-3px);
+  }
+
+  75% {
+    transform: translateX(3px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .collapsible {
     transition: none;
+  }
+
+  /* The placeholder still changes, so the reason survives without the motion. */
+  .btn--nudge {
+    animation: none;
   }
 }
 

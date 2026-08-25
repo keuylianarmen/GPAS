@@ -6,6 +6,7 @@ import { customerLabel } from '../lib/customer'
 import { useNamePair } from '../lib/useNamePair'
 import Dialog from './Dialog'
 import { t, tn } from '../lib/i18n'
+import NamePairFields from './NamePairFields'
 import VehicleFields from './VehicleFields'
 import {
   describeVehicle,
@@ -30,10 +31,6 @@ export default function AddCustomerDialog({
   // A new customer has nothing typed yet, so a suggestion can never be
   // sitting on top of someone's own correction here.
   const names = useNamePair({ suggest: true })
-  // Both marks are mutually exclusive per field: one holds what the user
-  // typed, the other holds what the app suggested.
-  const enMark = names.markOf('en')
-  const arMark = names.markOf('ar')
   const [phone, setPhone] = useState('')
   const [optIn, setOptIn] = useState(false)
   const [drafts, setDrafts] = useState<VehicleDraft[]>([emptyVehicleDraft()])
@@ -154,61 +151,20 @@ export default function AddCustomerDialog({
   return (
     <Dialog title={t('customerForm.newTitle')} onClose={handleClose} busy={saving}>
       <form onSubmit={handleSubmit} noValidate>
-        <label className="field">
-          <span>
-            {t('customerForm.nameEn')}{' '}
-            <span className="field-hint">{t('customerForm.nameEnHint')}</span>
-            {enMark && (
-              <> <span className="field-hint">
-                {t(enMark === 'suggested' ? 'common.suggested' : 'customerForm.movedHere')}
-              </span></>
-            )}
-          </span>
-          <input
-            className={enMark ? `is-${enMark}` : undefined}
-            autoFocus
-            value={names.en}
-            onChange={(event) => names.setEn(event.target.value)}
-            onBlur={names.onBlurEn}
-            // The example name would read as a value while the real one is on
-            // its way, so the slot it occupies is where the wait belongs.
-            placeholder={
-              names.pending === 'en'
-                ? t('customerForm.findingEn')
-                : t('customerForm.nameEnPlaceholder')
-            }
-            aria-busy={names.pending === 'en'}
-            disabled={saving}
-          />
-        </label>
-
-        <label className="field">
-          <span>
-            {t('customerForm.nameAr')}{' '}
-            <span className="field-hint">{t('customerForm.nameArHint')}</span>
-            {arMark && (
-              <> <span className="field-hint">
-                {t(arMark === 'suggested' ? 'common.suggested' : 'customerForm.movedHere')}
-              </span></>
-            )}
-          </span>
-          <input
-            className={arMark ? `is-${arMark}` : undefined}
-            dir="auto"
-            value={names.ar}
-            onChange={(event) => names.setAr(event.target.value)}
-            onBlur={names.onBlurAr}
-            // The example name would read as a value while the real one is on
-            // its way, so the slot it occupies is where the wait belongs.
-            placeholder={
-              names.pending === 'ar'
-                ? t('customerForm.findingAr')
-                : t('customerForm.nameArPlaceholder')
-            }
-            aria-busy={names.pending === 'ar'}
-            disabled={saving}
-          />
-        </label>
+        <NamePairFields
+          names={names}
+          disabled={saving}
+          labels={{
+            labelEn: 'customerForm.nameEn',
+            labelAr: 'customerForm.nameAr',
+            hintEn: 'customerForm.nameEnHint',
+            hintAr: 'customerForm.nameArHint',
+            placeholderEn: 'customerForm.nameEnPlaceholder',
+            placeholderAr: 'customerForm.nameArPlaceholder',
+            findingEn: 'customerForm.findingEn',
+            findingAr: 'customerForm.findingAr',
+          }}
+        />
 
         <label className="field">
           <span>
