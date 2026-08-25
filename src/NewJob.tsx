@@ -1266,16 +1266,6 @@ export default function NewJob({
 
       {step === 0 && (
         <section className="step-panel">
-          {resumable !== null && resumable.length > 0 && customer === null && (
-            <ResumeStrip
-              jobs={resumable}
-              busy={resuming}
-              onResume={resumeJob}
-              onDismiss={() => setResumable([])}
-              onSeeAll={onSeeJobs}
-            />
-          )}
-
           {customer && !pickingCustomer && (
             <div className="card chosen">
               <div>
@@ -1325,6 +1315,20 @@ export default function NewJob({
                 {t('newJob.newCustomer')}
               </button>
             </div>
+
+            {/* Below the search row, not above it. This screen is for starting
+                a job; an unfinished one is an aside, and an aside does not go
+                first. Still the last thing before the customer list, so it is
+                read without scrolling — but only after the control the screen
+                exists for. */}
+            {resumable !== null && resumable.length > 0 && customer === null && (
+              <ResumeStrip
+                jobs={resumable}
+                busy={resuming}
+                onResume={resumeJob}
+                onSeeAll={onSeeJobs}
+              />
+            )}
 
             {visibleCustomers.length === 0 ? (
               <p className="empty">
@@ -1925,47 +1929,32 @@ export default function NewJob({
 const RESUME_SHOWN = 3
 
 /**
- * Jobs that were started and never finished, offered on arrival.
+ * Jobs that were started and never finished, offered on the way past.
  *
- * A shortcut, not a warning — so no card, no heading, and no sentence saying
- * what the rows below it already say. Each row identifies a job and offers to
- * open it; that is the whole feature. It was a bordered panel with a title and
- * an explanatory line, which made a small aside larger than the customer
- * picker underneath it.
+ * A shortcut, not a warning, and not the point of the screen — so it sits
+ * under the customer search rather than above it, and there is no dismiss.
+ * Dismissing only ever meant "get out of the way of the picker"; below the
+ * picker's own search row there is nothing to get out of the way of, and the
+ * picker is itself how a new job starts.
  *
- * The marker is the amber dot the Jobs screen uses for the same jobs, so the
- * two places agree about what an unfinished job looks like. It does not
- * breathe here. The pulse there means "this section is live and you are
- * watching it"; this list is a door you walk through on the way past, and it
- * disappears the moment a customer is chosen.
+ * Every row leads with what it is. A dot and a job number could be anything —
+ * the only clue that these were resumable was the button at the far end, which
+ * is the wrong end to find out. The word is the same one the Jobs screen uses
+ * for the same jobs, from the same string.
  */
 function ResumeStrip({
   jobs,
   busy,
   onResume,
-  onDismiss,
   onSeeAll,
 }: {
   jobs: ResumableJob[]
   busy: boolean
   onResume: (job: Job) => void
-  onDismiss: () => void
   onSeeAll?: () => void
 }) {
   const shown = jobs.slice(0, RESUME_SHOWN)
   const hidden = jobs.length - shown.length
-  const single = jobs.length === 1
-
-  const dismiss = (
-    <button
-      type="button"
-      className="btn btn--quiet btn--small"
-      onClick={onDismiss}
-      disabled={busy}
-    >
-      {t('newJob.resumeDismiss')}
-    </button>
-  )
 
   return (
     <div className="resume-list">
@@ -1974,6 +1963,10 @@ function ResumeStrip({
         return (
           <div className="resume-row" key={row.id}>
             <span className="resume-line figures" dir="auto">
+              {/* The label is the quiet half and the job is the loud one:
+                  which job it is deserves the reading, what kind of thing it
+                  is only qualifies it. */}
+              <span className="resume-tag">{t('newJob.resumeTag')}</span>{' '}
               {t('newJob.jobNumber', { number: row.job_no })}
               {' \u00B7 '}
               {row.customers ? customerLabel(row.customers) : t('jobs.unknownCustomer')}
@@ -1989,10 +1982,6 @@ function ResumeStrip({
               >
                 {t('newJob.resumeAction')}
               </button>
-              {/* On the row itself when it is the only one, so the whole
-                  feature is a single line. With several, it belongs to the
-                  list rather than to the last job in it. */}
-              {single && dismiss}
             </span>
           </div>
         )
@@ -2018,8 +2007,6 @@ function ResumeStrip({
           )}
         </div>
       )}
-
-      {!single && <div className="resume-foot">{dismiss}</div>}
     </div>
   )
 }

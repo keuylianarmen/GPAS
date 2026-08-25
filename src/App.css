@@ -1339,13 +1339,16 @@
   white-space: nowrap;
 }
 
-/* Unfinished jobs offered on arrival at New job.
-   A list of rows, not a panel. It was a bordered card with a heading and an
-   explanatory line, which made a small shortcut heavier than the customer
-   picker below it — and it carried .notice's crimson edge, which reads as an
+/* Unfinished jobs, offered under the customer search rather than above it.
+   A list of rows, not a panel: it was a bordered card with a heading and an
+   explanatory line, which made a small shortcut heavier than the picker it
+   interrupted — and it carried .notice's crimson edge, which reads as an
    error for something that is only an offer. */
 .resume-list {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  /* It belongs to the search above it, not to the list of customers below,
+     so the space under it is the larger of the two. */
+  padding-bottom: 2px;
 }
 
 .resume-row {
@@ -1379,6 +1382,14 @@
 
 .resume-line {
   min-width: 0;
+  color: var(--ink);
+}
+
+/* What the row is, ahead of which one it is. Muted against the job's ink so
+   it reads as a qualifier rather than as part of the name — and repeated on
+   every row, because each row has to stand up on its own once the heading
+   this list used to have is gone. */
+.resume-tag {
   color: var(--muted);
 }
 
@@ -1392,12 +1403,6 @@
 /* The overflow line is a count, not a job — no marker. */
 .resume-row--more .resume-line::before {
   display: none;
-}
-
-.resume-foot {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 4px;
 }
 
 /* Vehicle change confirmation ------------------------------------------ */

@@ -584,11 +584,13 @@ export const en = {
     'The job could not be started, so nothing is being saved yet.',
   'newJob.jobSaveFailedInline': 'The last change did not save.',
   'newJob.retryJob': 'Try again',
+  // Its own string rather than jobs.statusOpen reused: that one is a badge and
+  // this one leads into a sentence, so each language owns its own punctuation.
+  'newJob.resumeTag': 'In progress:',
   'newJob.resumeAction': 'Resume',
   'newJob.resumeMore.one': '{count} more unfinished',
   'newJob.resumeMore.other': '{count} more unfinished',
   'newJob.resumeSeeAll': 'See them in Jobs',
-  'newJob.resumeDismiss': 'Start a new one',
   'newJob.resumeLoadFailed': 'That job could not be opened.',
   'newJob.resumeNothing': 'nothing entered yet',
   'newJob.vehicleMissing':

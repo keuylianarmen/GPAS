@@ -604,6 +604,7 @@ export const ar: Catalogue = {
   'newJob.jobCreateFailed': 'تعذّر بدء الأمر، فلا شيء يُحفظ حتى الآن.',
   'newJob.jobSaveFailedInline': 'لم يُحفظ التغيير الأخير.',
   'newJob.retryJob': 'إعادة المحاولة',
+  'newJob.resumeTag': 'قيد التنفيذ:',
   'newJob.resumeAction': 'متابعة',
   'newJob.resumeMore.one': 'أمر آخر غير مكتمل',
   'newJob.resumeMore.two': 'أمران آخران غير مكتملين',
@@ -611,7 +612,6 @@ export const ar: Catalogue = {
   'newJob.resumeMore.many': '{count} أمرًا آخر غير مكتمل',
   'newJob.resumeMore.other': '{count} أمر آخر غير مكتمل',
   'newJob.resumeSeeAll': 'عرضها في الأوامر',
-  'newJob.resumeDismiss': 'بدء أمر جديد',
   'newJob.resumeLoadFailed': 'تعذّر فتح هذا الأمر.',
   'newJob.resumeNothing': 'لم يُدخل شيء بعد',
   'newJob.vehicleMissing':
