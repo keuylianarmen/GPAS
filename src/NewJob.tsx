@@ -39,6 +39,7 @@ import {
 } from './lib/tire'
 import type { TireDraft } from './lib/tire'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
+import { makeTrace } from './lib/suggest'
 import { jobVehicleLabel, vehicleLabel } from './lib/vehicle'
 import { parseOptionalInteger, priceValue, sumPrices } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
@@ -70,6 +71,14 @@ type Job = Database['public']['Tables']['jobs']['Row']
 type Category = Database['public']['Tables']['service_categories']['Row']
 type Service = Database['public']['Tables']['services']['Row']
 type PaymentMethod = Database['public']['Tables']['lookup_values']['Row']
+
+/**
+ * Every decision not to write is announced, the same way the suggestion code
+ * announces every decision not to suggest. A silent early return in a save
+ * path is indistinguishable from a working one to anybody watching, which is
+ * exactly how a missing write survives to production.
+ */
+const trace = makeTrace('open job')
 
 /** An open job as the resume strip needs it — enough to recognise, no more. */
 type ResumableJob = Job & {
@@ -624,9 +633,114 @@ export default function NewJob({
     if (failure) setJobError(failure)
   }
 
+  /**
+   * The single writer for the job's vehicle, and the reading that comes with
+   * it.
+   *
+   * Every way a vehicle can end up on screen runs through here rather than
+   * through the handler that chose it: the customer-load effect preselects one
+   * and has no handler at all, `chooseVehicle` returns early when the pick
+   * matches what is already shown, and the add-vehicle dialog sets its own
+   * state. Writing from each of those separately is what left one of them out.
+   *
+   * Comparing against the row rather than tracking what has been sent means an
+   * unwritten vehicle repairs itself on the next render, whichever path failed
+   * to write it.
+   *
+   * The reading rides along because a vehicle_id change is always a discrete
+   * pick, never something in progress — so the odometer beside it is either the
+   * new car's stored reading or one somebody has finished typing, and never a
+   * half-entered number on its way to the vehicle via trg_bump_odometer.
+   */
+  const reconciling = useRef(false)
+
+  useEffect(() => {
+    if (job === null || !vehicleChosen) return
+    if (job.vehicle_id === vehicleId) return
+    // A write from the previous render is still in flight; its result will
+    // bring the row into line and this effect will see that.
+    if (reconciling.current) return
+
+    const parsed = parseOptionalInteger(odometer)
+    const reading = parsed === 'invalid' ? null : parsed
+
+    trace('vehicle on screen is not the one on the row', {
+      onScreen: vehicleId,
+      onRow: job.vehicle_id,
+      reading,
+    })
+
+    reconciling.current = true
+    // trg_move_reminders fires on this and correctly does nothing: the lines
+    // are still 'open', so no reminder exists to move.
+    saveJob({ vehicle_id: vehicleId, odometer: reading }).finally(() => {
+      reconciling.current = false
+    })
+    // `odometer` is deliberately absent: this fires on the vehicle changing,
+    // and reads whatever the reading is at that moment. Including it would
+    // re-run on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job, vehicleId, vehicleChosen])
+
+  /**
+   * The invariant this screen is supposed to hold: what the open row says and
+   * what the screen says are the same thing.
+   *
+   * A trace, never a message. Nobody at the counter can act on it, and it
+   * would fire on a reading that is simply still being typed. What it is for
+   * is the next time a write goes missing — this screen shipped with a vehicle
+   * that never reached its row, and the only way anyone could have known was
+   * to read the table. Now it says so in the console the moment it happens.
+   *
+   * Not a repair. A divergence found here is a bug in whichever path should
+   * have written, and quietly patching it over would hide exactly what this
+   * exists to expose. The one field with a designated reconciler is
+   * vehicle_id, above, and that repairs because a preselection has no handler
+   * to fix.
+   */
+  useEffect(() => {
+    if (job === null) return
+
+    const timer = setTimeout(() => {
+      const parsed = parseOptionalInteger(odometer)
+      const onScreen = {
+        vehicle_id: vehicleId,
+        odometer: parsed === 'invalid' ? null : parsed,
+        payment_method: paymentMethod || null,
+      }
+
+      const diverged = Object.entries(onScreen).filter(
+        ([field, value]) => job[field as keyof typeof onScreen] !== value,
+      )
+
+      if (diverged.length === 0) return
+
+      trace('the row does not match the screen', {
+        job: job.job_no,
+        step,
+        fields: Object.fromEntries(
+          diverged.map(([field, value]) => [
+            field,
+            { onRow: job[field as keyof typeof onScreen], onScreen: value },
+          ]),
+        ),
+      })
+    }, 900)
+
+    return () => clearTimeout(timer)
+  }, [job, step, vehicleId, odometer, paymentMethod])
+
   /** Applies a patch to the open job and keeps the local row in step. */
   async function saveJob(patch: Parameters<typeof patchJob>[1]) {
-    if (!job) return
+    if (!job) {
+      // Correct to skip — there is nothing to write to yet — but never
+      // silently. A dropped write here is invisible in the UI and only shows
+      // up as a null column days later.
+      trace('nothing written: no open job row yet', { patch, customer: customer?.id })
+      return
+    }
+
+    trace('writing', { job: job.job_no, patch })
     const saved = await patchJob(job.id, patch)
     if ('error' in saved) {
       setJobError(saved.error)
@@ -820,11 +934,20 @@ export default function NewJob({
    */
   function chooseVehicle(vehicle: Vehicle | null) {
     const nextId = vehicle?.id ?? null
-    // Re-picking what is already on the job. Not a change, so the reading
-    // typed for this visit is left where it is. `vehicleChosen` is part of the
-    // comparison because "not chosen yet" and "deliberately none" are both a
-    // null id, and moving between them is a real change.
+    // Re-picking what is already on screen. Not a change, so the reading typed
+    // for this visit and the lines derived from it are left alone —
+    // `vehicleChosen` is part of the comparison because "not chosen yet" and
+    // "deliberately none" are both a null id, and moving between them is real.
+    //
+    // The row is a separate question. What is on screen may never have reached
+    // it, which is exactly the case a preselected vehicle lands in, so the
+    // reconciler below is left to settle that rather than being short-circuited
+    // here.
     if (vehicleChosen && nextId === vehicleId) {
+      trace('vehicle unchanged on screen; the row is left to the reconciler', {
+        vehicleId,
+        onRow: job?.vehicle_id ?? null,
+      })
       setPickingVehicle(false)
       continueRef.current?.focus()
       return
@@ -838,10 +961,6 @@ export default function NewJob({
     // Picking any vehicle answers the stranded-vehicle notice, including the
     // deliberate choice of none.
     setStrandedVehicle(null)
-    // trg_move_reminders fires on this, and correctly does nothing: the lines
-    // are still 'open', so no reminder exists to move.
-    saveJob({ vehicle_id: nextId, odometer: reading })
-
     // The new car's own figures, not the memos, which are still holding the
     // old car's until this render lands.
     setLines((current) =>
@@ -1099,6 +1218,42 @@ export default function NewJob({
         ))}
       </nav>
 
+      {/* Outside every step panel, because a write can fail on any of them.
+          This lived inside step 0 and so could only ever report a failure on
+          the customer step — the vehicle and odometer writes happen on step 1
+          and their failures had nowhere to appear. That is what let a missing
+          write go unnoticed. */}
+      {jobError !== null && job === null && customer !== null && (
+        <div className="card notice confirm-panel">
+          <p className="confirm-title">{t('newJob.jobCreateFailed')}</p>
+          <p className="muted">{jobError}</p>
+          <div className="confirm-row">
+            <button
+              type="button"
+              className="btn btn--dark btn--small"
+              onClick={retryStartJob}
+              disabled={startingJob}
+            >
+              {startingJob ? t('action.saving') : t('newJob.retryJob')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {job !== null && (
+        <p className="field-note figures" dir="auto">
+          {t('newJob.jobOpened', { number: job.job_no })}
+          {jobError !== null && (
+            <>
+              {' '}
+              <span className="due-usage-error">
+                {t('newJob.jobSaveFailedInline')}
+              </span>
+            </>
+          )}
+        </p>
+      )}
+
       {step === 0 && (
         <section className="step-panel">
           {resumable !== null && resumable.length > 0 && customer === null && (
@@ -1108,37 +1263,6 @@ export default function NewJob({
               onResume={resumeJob}
               onDismiss={() => setResumable([])}
             />
-          )}
-
-          {jobError !== null && job === null && customer !== null && (
-            <div className="card notice confirm-panel">
-              <p className="confirm-title">{t('newJob.jobCreateFailed')}</p>
-              <p className="muted">{jobError}</p>
-              <div className="confirm-row">
-                <button
-                  type="button"
-                  className="btn btn--dark btn--small"
-                  onClick={retryStartJob}
-                  disabled={startingJob}
-                >
-                  {startingJob ? t('action.saving') : t('newJob.retryJob')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {job !== null && (
-            <p className="field-note figures" dir="auto">
-              {t('newJob.jobOpened', { number: job.job_no })}
-              {jobError !== null && (
-                <>
-                  {' '}
-                  <span className="due-usage-error">
-                    {t('newJob.jobSaveFailedInline')}
-                  </span>
-                </>
-              )}
-            </p>
           )}
 
           {customer && !pickingCustomer && (
@@ -1759,12 +1883,12 @@ export default function NewJob({
                 ? { customerId: vehicle.customer_id, rows: [vehicle] }
                 : { ...current, rows: [...current.rows, vehicle] },
             )
-            setVehicleId(vehicle.id)
-            setVehicleChosen(true)
-            setPickingVehicle(false)
-            setOdometer(
-              vehicle.current_odometer === null ? '' : String(vehicle.current_odometer),
-            )
+            // Through chooseVehicle rather than setting the same four pieces
+            // of state again: a car added here is chosen exactly as one picked
+            // from the list is, down to re-deriving the next-due on any lines
+            // already entered. This path used to be a copy of that one minus
+            // the re-derivation, which is how the copies drift.
+            chooseVehicle(vehicle)
             setAddingVehicle(false)
           }}
         />
