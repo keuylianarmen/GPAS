@@ -580,13 +580,14 @@ function JobDialog({
         const service = serviceById.get(draft.serviceId)
         return withRegradedDue(
           draft,
-          gradeDue(
+          gradeDue({
             service,
-            gradeInterval(service?.fluid_grade_list ?? null, draft.fluid.grade),
-            jobOdometer,
-            next,
-            job.start_date,
-          ),
+            interval: gradeInterval(service?.fluid_grade_list ?? null, draft.fluid.grade),
+            odometer: jobOdometer,
+            kmPerDay: next,
+            baseDate: job.start_date,
+            line: draft,
+          }),
         )
       }),
     )
@@ -920,7 +921,14 @@ function JobDialog({
             draft.fluid.grade,
           )
           // The job's own date, not today — this line belongs to that visit.
-          const graded = gradeDue(service, interval, jobOdometer, kmPerDay, job.start_date)
+          const graded = gradeDue({
+            service,
+            interval,
+            odometer: jobOdometer,
+            kmPerDay,
+            baseDate: job.start_date,
+            line: draft,
+          })
 
           // Marked only where the app actually put something, and never on a
           // saved line: its due point was settled at that visit.
@@ -1000,13 +1008,17 @@ function JobDialog({
                         ? {}
                         : regradeDue(
                             draft,
-                            gradeDue(
+                            gradeDue({
                               service,
-                              gradeInterval(service.fluid_grade_list, next.grade),
-                              jobOdometer,
+                              interval: gradeInterval(
+                                service.fluid_grade_list,
+                                next.grade,
+                              ),
+                              odometer: jobOdometer,
                               kmPerDay,
-                              job.start_date,
-                            ),
+                              baseDate: job.start_date,
+                              line: draft,
+                            }),
                           )),
                     })
                   }
@@ -1054,6 +1066,18 @@ function JobDialog({
                             dueMark: { ...draft.dueMark, km: false },
                           })
                         }
+                        // The date is measured over the distance this field
+                        // implies, so a new reading moves it — into the date
+                        // only while that is still the app's. On blur rather
+                        // than per keystroke: a half-typed reading is not a
+                        // distance, and the date must not jump about while
+                        // this one is being entered.
+                        onBlur={() => {
+                          const { nextDueDate } = regradeDue(draft, graded)
+                          if (nextDueDate !== undefined) {
+                            updateDraft(draft.key, { nextDueDate })
+                          }
+                        }}
                         disabled={saving}
                       />
                       <OdometerHint

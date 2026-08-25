@@ -354,13 +354,14 @@ export default function NewJob() {
         const service = serviceById.get(line.serviceId)
         return withRegradedDue(
           line,
-          gradeDue(
+          gradeDue({
             service,
-            gradeInterval(service?.fluid_grade_list ?? null, line.fluid.grade),
-            jobOdometer,
-            next,
-            todayIso(),
-          ),
+            interval: gradeInterval(service?.fluid_grade_list ?? null, line.fluid.grade),
+            odometer: jobOdometer,
+            kmPerDay: next,
+            baseDate: todayIso(),
+            line,
+          }),
         )
       }),
     )
@@ -752,7 +753,14 @@ export default function NewJob() {
             // from the same inputs the prefill used. Null unless the chosen
             // value carries an interval, which today only oil grades do.
             const interval = gradeInterval(service?.fluid_grade_list ?? null, line.fluid.grade)
-            const graded = gradeDue(service, interval, jobOdometer, kmPerDay, todayIso())
+            const graded = gradeDue({
+              service,
+              interval,
+              odometer: jobOdometer,
+              kmPerDay,
+              baseDate: todayIso(),
+              line,
+            })
 
             // Marked only where the app actually put something. An empty field
             // is the app's to fill but has nothing to advertise.
@@ -813,13 +821,17 @@ export default function NewJob() {
                           ? {}
                           : regradeDue(
                               line,
-                              gradeDue(
+                              gradeDue({
                                 service,
-                                gradeInterval(service.fluid_grade_list, next.grade),
-                                jobOdometer,
+                                interval: gradeInterval(
+                                  service.fluid_grade_list,
+                                  next.grade,
+                                ),
+                                odometer: jobOdometer,
                                 kmPerDay,
-                                todayIso(),
-                              ),
+                                baseDate: todayIso(),
+                                line,
+                              }),
                             )),
                       })
                     }
@@ -865,6 +877,20 @@ export default function NewJob() {
                               dueMark: { ...line.dueMark, km: false },
                             })
                           }
+                          // The date is measured over the distance this field
+                          // implies, so a new reading moves it — into the date
+                          // only while that is still the app's. On blur rather
+                          // than per keystroke: a half-typed reading is not a
+                          // distance, and the date must not jump about while
+                          // this one is being entered. `graded` is already
+                          // recomputed from the committed value by the time
+                          // this fires.
+                          onBlur={() => {
+                            const { nextDueDate } = regradeDue(line, graded)
+                            if (nextDueDate !== undefined) {
+                              updateLine(line.key, { nextDueDate })
+                            }
+                          }}
                         />
                         <OdometerHint
                           reference={odometerReference}

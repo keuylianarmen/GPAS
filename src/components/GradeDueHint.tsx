@@ -85,12 +85,16 @@ export default function GradeDueHint({
   function reason(): string {
     if (due.nextDueDate === '') return t('gradeDue.noDate')
 
-    if (due.dateFrom === 'usage' && days !== null && kmPerDay !== null) {
-      return t('gradeDue.byUsage', {
-        perDay: km(kmPerDay),
-        days,
-        date: due.nextDueDate,
-      })
+    // Both distance clauses name the figure the date was measured over, and
+    // say when it did not come from the grade — a reader looking at 12,000 in
+    // the field beside this needs to know which of the two numbers won.
+    const over = due.distance === null ? null : km(due.distance)
+
+    if (due.dateFrom === 'usage' && days !== null && kmPerDay !== null && over !== null) {
+      return t(
+        due.distanceFrom === 'entered' ? 'gradeDue.byUsageEntered' : 'gradeDue.byUsage',
+        { perDay: km(kmPerDay), distance: over, days, date: due.nextDueDate },
+      )
     }
 
     if (months === null) return t('gradeDue.due', { date: due.nextDueDate })
@@ -99,32 +103,46 @@ export default function GradeDueHint({
     // someone the average on the vehicle is wrong, so it is worth naming.
     // Neither clause repeats the months figure — the first sentence just
     // said it, two words earlier.
-    if (days !== null && kmPerDay !== null) {
-      return t('gradeDue.byMonths', {
-        perDay: km(kmPerDay),
-        days,
-        date: due.nextDueDate,
-      })
+    if (days !== null && kmPerDay !== null && over !== null) {
+      return t(
+        due.distanceFrom === 'entered' ? 'gradeDue.byMonthsEntered' : 'gradeDue.byMonths',
+        { perDay: km(kmPerDay), distance: over, days, date: due.nextDueDate },
+      )
     }
 
-    return t('gradeDue.noUsage', { date: due.nextDueDate })
+    // Nothing to weigh the cap against: either the car has no daily average,
+    // or the reading gave no distance to work from.
+    return kmPerDay === null
+      ? t('gradeDue.noUsage', { date: due.nextDueDate })
+      : t('gradeDue.monthsOnly', { date: due.nextDueDate })
   }
 
-  /** The offer names the limit that produced the date, not just the date. */
+  /** The offer names the distance and rate behind the date, not just the date. */
   function offer(): string {
-    if (due.dateFrom === 'usage' && kmPerDay !== null) {
-      return t('gradeDue.offerUsage', { perDay: km(kmPerDay), date: due.nextDueDate })
+    if (due.dateFrom === 'usage' && kmPerDay !== null && due.distance !== null) {
+      return t('gradeDue.offerUsage', {
+        distance: km(due.distance),
+        perDay: km(kmPerDay),
+        date: due.nextDueDate,
+      })
     }
     // The cap produced it, so there is a months figure by construction.
     return t('gradeDue.offerMonths', { months: months ?? '', date: due.nextDueDate })
   }
+
+  // The backwards note is about the reading, not the date, so it is said
+  // whether or not the date sentence is. It reads first: why there is no
+  // distance comes before what is left to go on.
+  const sentences = [rated]
+  if (due.distanceFrom === 'backwards') sentences.push(t('gradeDue.backwardsNote'))
+  if (explains) sentences.push(reason())
 
   return (
     <div className="due-explain">
       {/* A sentence carrying figures, not a bare figure: .figures with dir
           auto, so each unit stays attached to its number in Arabic. */}
       <p className="due-hint figures" dir="auto">
-        {explains ? `${rated} ${reason()}` : rated}
+        {sentences.join(' ')}
       </p>
 
       {!explains && onUseComputed && (

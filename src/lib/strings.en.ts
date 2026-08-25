@@ -179,17 +179,24 @@ export const en = {
   'gradeDue.intervalKm': '{grade}: every {km} km.',
   'gradeDue.intervalMonths': '{grade}: every {months}.',
   'gradeDue.byUsage':
-    'At {perDay} km a day that is {days}, which comes first — next due {date}.',
+    'At {perDay} km a day, {distance} km is {days}, which comes first — next due {date}.',
+  'gradeDue.byUsageEntered':
+    'At {perDay} km a day, the {distance} km entered here is {days}, which comes first — next due {date}.',
   'gradeDue.byMonths':
-    'At {perDay} km a day the distance takes {days}, so the months come first — next due {date}.',
+    'At {perDay} km a day, {distance} km takes {days}, so the months come first — next due {date}.',
+  'gradeDue.byMonthsEntered':
+    'At {perDay} km a day, the {distance} km entered here takes {days}, so the months come first — next due {date}.',
   'gradeDue.noUsage':
     'No km a day on this car, so only the months apply — next due {date}.',
+  'gradeDue.monthsOnly': 'Only the months apply — next due {date}.',
+  'gradeDue.backwardsNote':
+    'The next-due reading is not ahead of this job\u2019s, so there is no distance to measure.',
   'gradeDue.noDate':
     'No date to compute from — that needs months on the grade, or km a day on the car.',
   'gradeDue.due': 'Next due {date}.',
   'gradeDue.usageLabel': 'Km a day for this car.',
   'gradeDue.usageOnCar': 'saved on the car',
-  'gradeDue.offerUsage': '{perDay} km/day → {date}',
+  'gradeDue.offerUsage': '{distance} km at {perDay} km/day → {date}',
   'gradeDue.offerMonths': '{months} → {date}',
   'gradeDue.useComputed': 'Use this date',
   'gradeDue.months.one': '{count} month',

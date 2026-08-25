@@ -178,17 +178,24 @@ export const ar: Catalogue = {
   'gradeDue.intervalKm': '{grade}: كل {km} كم.',
   'gradeDue.intervalMonths': '{grade}: كل {months}.',
   'gradeDue.byUsage':
-    'على {perDay} كم في اليوم تكفي المسافة {days}، وهي الأقرب — الاستحقاق التالي {date}.',
+    'على {perDay} كم في اليوم، {distance} كم تكفي {days}، وهي الأقرب — الاستحقاق التالي {date}.',
+  'gradeDue.byUsageEntered':
+    'على {perDay} كم في اليوم، المسافة المُدخلة هنا {distance} كم تكفي {days}، وهي الأقرب — الاستحقاق التالي {date}.',
   'gradeDue.byMonths':
-    'على {perDay} كم في اليوم تحتاج المسافة {days}، فيسبقها الحدّ الزمني — الاستحقاق التالي {date}.',
+    'على {perDay} كم في اليوم، {distance} كم تحتاج {days}، فيسبقها الحدّ الزمني — الاستحقاق التالي {date}.',
+  'gradeDue.byMonthsEntered':
+    'على {perDay} كم في اليوم، المسافة المُدخلة هنا {distance} كم تحتاج {days}، فيسبقها الحدّ الزمني — الاستحقاق التالي {date}.',
   'gradeDue.noUsage':
     'لا يوجد معدّل كيلومترات يومي لهذه السيارة، فالحدّ الزمني وحده هو ما يحدّد التاريخ — الاستحقاق التالي {date}.',
+  'gradeDue.monthsOnly': 'ينطبق الحدّ الزمني وحده — الاستحقاق التالي {date}.',
+  'gradeDue.backwardsNote':
+    'قراءة الاستحقاق التالي ليست أعلى من قراءة هذا الأمر، فلا توجد مسافة تُحسب.',
   'gradeDue.noDate':
     'لا يوجد ما يُحسب منه تاريخ — يلزم عدد أشهر للدرجة، أو معدّل كيلومترات يومي للسيارة.',
   'gradeDue.due': 'الاستحقاق التالي {date}.',
   'gradeDue.usageLabel': 'الكيلومترات اليومية لهذه السيارة.',
   'gradeDue.usageOnCar': 'يُحفظ على السيارة',
-  'gradeDue.offerUsage': '{perDay} كم/يوم ← {date}',
+  'gradeDue.offerUsage': '{distance} كم على {perDay} كم/يوم ← {date}',
   'gradeDue.offerMonths': '{months} ← {date}',
   'gradeDue.useComputed': 'استخدم هذا التاريخ',
   'gradeDue.months.one': 'شهر واحد',

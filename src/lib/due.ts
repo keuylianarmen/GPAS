@@ -1,4 +1,5 @@
 import { addDays, addMonths } from './date'
+import { parseOptionalInteger } from './parse'
 
 type Remindable = {
   triggers_reminder: boolean
@@ -64,10 +65,22 @@ export type GradeInterval = {
 /** What settled the date, so the hint can say why rather than just what. */
 export type DueDateSource = 'usage' | 'months' | 'none'
 
+/**
+ * Where the distance the date is measured over came from.
+ *
+ * 'backwards' is a next-due reading at or below the one the car came in on.
+ * There is no future distance in that, so it produces no date rather than a
+ * date already gone.
+ */
+export type DueDistanceSource = 'grade' | 'entered' | 'backwards'
+
 export type GradeDue = {
   nextDueKm: string
   nextDueDate: string
-  /** How long the grade's distance takes at this car's rate. Null without one. */
+  /** The distance the date was measured over. Null when there was none to use. */
+  distance: number | null
+  distanceFrom: DueDistanceSource
+  /** How long that distance takes at this car's rate. Null without one. */
   days: number | null
   dateFrom: DueDateSource
 }
@@ -81,17 +94,33 @@ export type GradeDue = {
  * stands alone and the reminder is simply less precise. That is why km_per_day
  * is optional and why nothing here treats its absence as an error.
  *
+ * The distance is the one the next-due reading implies, not the grade's
+ * default. A hand-set reading is a decision about how far this car goes before
+ * it comes back, and measuring the date over the grade's 10,000 while the
+ * field beside it says 12,000 puts two contradictory answers on one line.
+ * While that field is still the app's it holds odometer + the grade's
+ * distance, so the two agree and the ordinary case is unchanged.
+ *
  * Null when there is no interval to work from — a grade list other than
  * oil_grade carries nulls, and computing from those would produce a date out
  * of nothing.
  */
-export function gradeDue(
-  service: Remindable | undefined,
-  interval: GradeInterval | null | undefined,
-  odometer: number | null,
-  kmPerDay: number | null,
-  baseDate: string,
-): GradeDue | null {
+export function gradeDue({
+  service,
+  interval,
+  odometer,
+  kmPerDay,
+  baseDate,
+  line,
+}: {
+  service: Remindable | undefined
+  interval: GradeInterval | null | undefined
+  odometer: number | null
+  kmPerDay: number | null
+  baseDate: string
+  /** The next-due reading as it stands, and whether it is the app's or a person's. */
+  line: { nextDueKm: string; dueMark: DueMark }
+}): GradeDue | null {
   // A line whose service does not trigger a reminder has no next-due fields on
   // screen; filling them would store a due point nobody can see.
   if (!service?.triggers_reminder) return null
@@ -101,11 +130,32 @@ export function gradeDue(
   const months = interval.reminder_months
   if (intervalKm === null && months === null) return null
 
+  // Only a reading somebody put there is consulted. While the mark stands the
+  // field is about to be rewritten to odometer + the grade's distance anyway,
+  // and reading the value it is replacing would measure the date over the
+  // grade the line just moved away from.
+  const entered = line.dueMark.km ? null : parseOptionalInteger(line.nextDueKm)
+  const spread =
+    entered !== null && entered !== 'invalid' && odometer !== null
+      ? entered - odometer
+      : null
+
+  // A next-due at or below the reading the car came in on. Falling back to the
+  // grade's default here would quietly paper over what is almost always a
+  // typo — the odometer hint beside the field is already flagging it — so the
+  // distance is dropped and the months cap stands alone.
+  const distanceFrom: DueDistanceSource =
+    spread === null ? 'grade' : spread > 0 ? 'entered' : 'backwards'
+  const distance =
+    distanceFrom === 'entered' ? spread : distanceFrom === 'grade' ? intervalKm : null
+
   const byMonths = months === null ? null : addMonths(baseDate, months)
 
+  // Ceiling, not rounding: the oil is not due until the distance is actually
+  // covered, and a distance shorter than one day's driving still takes a day.
   const days =
-    intervalKm !== null && kmPerDay !== null && kmPerDay > 0
-      ? Math.round(intervalKm / kmPerDay)
+    distance !== null && kmPerDay !== null && kmPerDay > 0
+      ? Math.ceil(distance / kmPerDay)
       : null
   const byUsage = days === null ? null : addDays(baseDate, days)
 
@@ -127,6 +177,8 @@ export function gradeDue(
     nextDueKm:
       odometer !== null && intervalKm !== null ? String(odometer + intervalKm) : '',
     nextDueDate: sooner.date,
+    distance,
+    distanceFrom,
     days,
     dateFrom: sooner.from,
   }
