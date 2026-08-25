@@ -1604,6 +1604,24 @@
   color: var(--muted);
 }
 
+/* What the grade and the car's usage would put in the date field, when that is
+   not what the field says. An offer with a button, never a correction applied
+   on its own: whoever typed over the prefill may have had a reason the app
+   cannot see. */
+.due-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.due-offer .btn {
+  margin: 0;
+}
+
 /* The daily average, asked where the date that depends on it is explained.
    Wraps rather than squeezing: the label is a whole question in both
    languages, and the answer beside it is two or three digits. */

@@ -6,18 +6,25 @@ import KmPerDayField from './KmPerDayField'
 /**
  * Why the next-due fields on this line say what they say.
  *
- * One line under the pair, never a dialog. The numbers are a starting point
+ * One block under the pair, never a dialog. The numbers are a starting point
  * and the person who saw the car still decides, so the explanation has to be
  * cheap to read past — and it has to name the grade, because the grade is the
  * thing the reader can change if the answer looks wrong.
  *
- * Two clauses: what the grade is rated for, then which of its two limits
- * produced the date. The distance the app wrote is left to the odometer hint
- * under the km field, which already shows the gap.
+ * Three parts, each on its own terms:
  *
- * Below them, the one input that would sharpen all of it. The daily average
- * is the difference between a date and a guess, and this is the moment
- * somebody could just ask.
+ * - What the grade is rated for. Always, while a grade with an interval is on
+ *   the line.
+ * - Which of its two limits produced the date — but only while that date is
+ *   the one in the box. Once someone types over it the sentence would be
+ *   describing a value that is not there.
+ * - What the computation would give, offered with a button, when the box says
+ *   something else. Overriding a prefill should not be a one-way door.
+ *
+ * Below them, the one input that would sharpen all of it. The daily average is
+ * a fact about the car, not about this line's date, so it stays put whatever
+ * the date says — including after the date has been overridden, where changing
+ * it moves the offer instead of the field.
  */
 export default function GradeDueHint({
   grade,
@@ -25,6 +32,8 @@ export default function GradeDueHint({
   intervalMonths,
   kmPerDay,
   due,
+  enteredDate,
+  onUseComputed,
   onSaveKmPerDay,
   disabled = false,
 }: {
@@ -34,6 +43,14 @@ export default function GradeDueHint({
   intervalMonths: number | null
   kmPerDay: number | null
   due: GradeDue
+  /** What the next-due date field is holding right now. */
+  enteredDate: string
+  /**
+   * Puts the computed date back in the field and hands the field back to the
+   * app. Null where an offer would be unwelcome — a saved line whose date
+   * nobody has touched this session was decided at that visit.
+   */
+  onUseComputed: (() => void) | null
   /**
    * Persists a daily average against the car. Null when there is nothing to
    * write it to — a job with no vehicle linked, where the question has no
@@ -56,6 +73,14 @@ export default function GradeDueHint({
       : intervalKm !== null
         ? t('gradeDue.intervalKm', { grade, km: km(intervalKm) })
         : t('gradeDue.intervalMonths', { grade, months: months ?? '' })
+
+  // Whether the sentence about the date is still true of the field. Compared
+  // by value rather than by the suggested mark: someone who typed the same
+  // date by hand wants the explanation, not an offer of what is already there.
+  const standing = due.nextDueDate !== '' && due.nextDueDate === enteredDate
+  // Nothing computed means nothing to contradict, and the reason clause says
+  // exactly that.
+  const explains = standing || due.nextDueDate === ''
 
   function reason(): string {
     if (due.nextDueDate === '') return t('gradeDue.noDate')
@@ -85,19 +110,41 @@ export default function GradeDueHint({
     return t('gradeDue.noUsage', { date: due.nextDueDate })
   }
 
+  /** The offer names the limit that produced the date, not just the date. */
+  function offer(): string {
+    if (due.dateFrom === 'usage' && kmPerDay !== null) {
+      return t('gradeDue.offerUsage', { perDay: km(kmPerDay), date: due.nextDueDate })
+    }
+    // The cap produced it, so there is a months figure by construction.
+    return t('gradeDue.offerMonths', { months: months ?? '', date: due.nextDueDate })
+  }
+
   return (
     <div className="due-explain">
       {/* A sentence carrying figures, not a bare figure: .figures with dir
           auto, so each unit stays attached to its number in Arabic. */}
       <p className="due-hint figures" dir="auto">
-        {rated} {reason()}
+        {explains ? `${rated} ${reason()}` : rated}
       </p>
+
+      {!explains && onUseComputed && (
+        <div className="due-offer">
+          <span className="figures" dir="auto">
+            {offer()}
+          </span>
+          <button
+            type="button"
+            className="btn btn--quiet btn--small"
+            onClick={onUseComputed}
+            disabled={disabled}
+          >
+            {t('gradeDue.useComputed')}
+          </button>
+        </div>
+      )}
+
       {onSaveKmPerDay && (
-        <KmPerDayField
-          value={kmPerDay}
-          onSave={onSaveKmPerDay}
-          disabled={disabled}
-        />
+        <KmPerDayField value={kmPerDay} onSave={onSaveKmPerDay} disabled={disabled} />
       )}
     </div>
   )

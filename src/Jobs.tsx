@@ -927,15 +927,15 @@ function JobDialog({
           const kmIsPrefill = draft.dueMark.km && draft.nextDueKm !== ''
           const dateIsPrefill = draft.dueMark.date && draft.nextDueDate !== ''
 
-          // The hint explains the date in the box, so it is shown only while
-          // that is still the date this computation produces. Typing over it
-          // drops the mark; relinking the job to a car with a different
-          // average moves the computation out from under it.
-          const explainDue =
-            graded !== null &&
-            interval !== null &&
-            draft.dueMark.date &&
-            graded.nextDueDate === draft.nextDueDate
+          // Whether an offer to go back to the computed date belongs here. A
+          // new line, always — its date was a prefill minutes ago. A saved
+          // line only once its date has moved in this session: an untouched
+          // one was decided at that visit, and the reminder syncs back from
+          // it, so a standing offer to change it is an invitation to churn
+          // history by accident.
+          const dateTouched =
+            draft.id === null ||
+            snapshot.get(draft.key)?.nextDueDate !== draft.nextDueDate
 
           return (
             <div className="card line" key={draft.key}>
@@ -1085,7 +1085,10 @@ function JobDialog({
                       />
                     </label>
                   </div>
-                  {explainDue && graded && interval && (
+                  {/* Shown whenever a grade with an interval is on the line —
+                      the daily average it carries is a fact about the car, not
+                      about whether this line's date has been typed over. */}
+                  {graded && interval && (
                     <GradeDueHint
                       // label_en is NOT NULL, so it is always a real fallback.
                       grade={
@@ -1095,6 +1098,16 @@ function JobDialog({
                       intervalMonths={interval.reminder_months}
                       kmPerDay={kmPerDay}
                       due={graded}
+                      enteredDate={draft.nextDueDate}
+                      onUseComputed={
+                        dateTouched
+                          ? () =>
+                              updateDraft(draft.key, {
+                                nextDueDate: graded.nextDueDate,
+                                dueMark: { ...draft.dueMark, date: true },
+                              })
+                          : null
+                      }
                       onSaveKmPerDay={onSaveKmPerDay}
                       disabled={saving}
                     />

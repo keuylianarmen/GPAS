@@ -759,16 +759,6 @@ export default function NewJob() {
             const kmIsPrefill = line.dueMark.km && line.nextDueKm !== ''
             const dateIsPrefill = line.dueMark.date && line.nextDueDate !== ''
 
-            // The hint explains the date in the box, so it is shown only while
-            // that is still the date this computation produces. Typing over it
-            // drops the mark; swapping to a vehicle with a different average
-            // moves the computation out from under it. Either way the
-            // explanation would be describing something that is not there.
-            const explainDue =
-              graded !== null &&
-              interval !== null &&
-              line.dueMark.date &&
-              graded.nextDueDate === line.nextDueDate
 
             return (
               <div className="card line" key={line.key}>
@@ -904,7 +894,11 @@ export default function NewJob() {
                         />
                       </label>
                     </div>
-                    {explainDue && graded && interval && (
+                    {/* Shown whenever a grade with an interval is on the
+                        line — the daily average it carries is a fact about
+                        the car, not about whether this line's date has been
+                        typed over. The hint itself decides what to say. */}
+                    {graded && interval && (
                       <GradeDueHint
                         // label_en is NOT NULL, so it is always a real fallback.
                         grade={
@@ -915,6 +909,15 @@ export default function NewJob() {
                         intervalMonths={interval.reminder_months}
                         kmPerDay={kmPerDay}
                         due={graded}
+                        enteredDate={line.nextDueDate}
+                        // Every line here is unsaved, so every overridden date
+                        // is one somebody typed a moment ago and can want back.
+                        onUseComputed={() =>
+                          updateLine(line.key, {
+                            nextDueDate: graded.nextDueDate,
+                            dueMark: { ...line.dueMark, date: true },
+                          })
+                        }
                         onSaveKmPerDay={onSaveKmPerDay}
                       />
                     )}

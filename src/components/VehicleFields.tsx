@@ -157,7 +157,6 @@ export default function VehicleFields({
           inputMode="numeric"
           value={draft.kmPerDay}
           onChange={set('kmPerDay')}
-          placeholder={t('vehicleForm.kmPerDayPlaceholder')}
           disabled={disabled}
         />
       </label>

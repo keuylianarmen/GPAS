@@ -147,7 +147,6 @@ export const ar: Catalogue = {
   'vehicleForm.odometer': 'العداد',
   'vehicleForm.odometerPlaceholder': '84210',
   'vehicleForm.kmPerDay': 'كم كيلومترًا تقطع السيارة في اليوم وسطيًا؟',
-  'vehicleForm.kmPerDayPlaceholder': '40',
   'vehicleForm.kmPerDayNote':
     'تقدير تقريبي يكفي. يحوّل مسافة درجة الزيت إلى تاريخ — وبدونه تبقى الأشهر وحدها.',
   'vehicleForm.addMake': '+ إضافة ماركة',
@@ -187,8 +186,11 @@ export const ar: Catalogue = {
   'gradeDue.noDate':
     'لا يوجد ما يُحسب منه تاريخ — يلزم عدد أشهر للدرجة، أو معدّل كيلومترات يومي للسيارة.',
   'gradeDue.due': 'الاستحقاق التالي {date}.',
-  'gradeDue.usageLabel': 'الكيلومترات اليومية لهذه السيارة. عدّلها إذا بدا التاريخ غير صحيح.',
+  'gradeDue.usageLabel': 'الكيلومترات اليومية لهذه السيارة.',
   'gradeDue.usageOnCar': 'يُحفظ على السيارة',
+  'gradeDue.offerUsage': '{perDay} كم/يوم ← {date}',
+  'gradeDue.offerMonths': '{months} ← {date}',
+  'gradeDue.useComputed': 'استخدم هذا التاريخ',
   'gradeDue.months.one': 'شهر واحد',
   'gradeDue.months.two': 'شهرين',
   'gradeDue.months.few': '{count} أشهر',

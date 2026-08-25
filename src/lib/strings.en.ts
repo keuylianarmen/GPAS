@@ -148,7 +148,6 @@ export const en = {
   'vehicleForm.odometer': 'Odometer',
   'vehicleForm.odometerPlaceholder': '84210',
   'vehicleForm.kmPerDay': 'How many km a day does the car do, on average?',
-  'vehicleForm.kmPerDayPlaceholder': '40',
   'vehicleForm.kmPerDayNote':
     'A rough answer is enough. It turns an oil grade\u2019s distance into a date — without it, only the months apply.',
   'vehicleForm.addMake': 'Add a make',
@@ -188,8 +187,11 @@ export const en = {
   'gradeDue.noDate':
     'No date to compute from — that needs months on the grade, or km a day on the car.',
   'gradeDue.due': 'Next due {date}.',
-  'gradeDue.usageLabel': 'Km a day for this car. Edit it if the date looks wrong.',
+  'gradeDue.usageLabel': 'Km a day for this car.',
   'gradeDue.usageOnCar': 'saved on the car',
+  'gradeDue.offerUsage': '{perDay} km/day → {date}',
+  'gradeDue.offerMonths': '{months} → {date}',
+  'gradeDue.useComputed': 'Use this date',
   'gradeDue.months.one': '{count} month',
   'gradeDue.months.other': '{count} months',
   'gradeDue.days.one': '{count} day',

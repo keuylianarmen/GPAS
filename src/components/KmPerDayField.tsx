@@ -92,7 +92,6 @@ export default function KmPerDayField({
             event.preventDefault()
             event.currentTarget.blur()
           }}
-          placeholder={t('vehicleForm.kmPerDayPlaceholder')}
           disabled={disabled || saving}
           aria-busy={saving}
         />
