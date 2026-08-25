@@ -348,7 +348,10 @@ export default function Jobs({
             return (
               <div className="card job-row job-row--open" key={job.id}>
                 <div>
-                  <div dir="auto">
+                  {/* The live dot hangs off this line as a ::before, so it
+                      needs no element of its own and cannot be read out as
+                      content by a screen reader. */}
+                  <div className="job-row-open-title" dir="auto">
                     {t('newJob.jobNumber', { number: job.job_no })}
                     {' \u00B7 '}
                     {job.customers

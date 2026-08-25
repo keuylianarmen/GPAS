@@ -1229,10 +1229,46 @@
 
 /* Open jobs ------------------------------------------------------------ */
 
-/* Above the history, because an unfinished job is something to act on rather
-   than something to browse. */
+/* Unfinished jobs and finished ones are the same shape, and stacked together
+   they read as one sorted list rather than two kinds of thing. Three cues
+   separate them, none of which relies on colour alone:
+   an inset well around the section, a leading bar on each card that the
+   history rows do not have, and a clear gap where the well ends.
+
+   The well is a wash of ink rather than a tint of amber or green. Both of
+   those already mean something here — advisory and done — and a job somebody
+   is still entering is neither. */
 .open-jobs {
-  margin-bottom: 22px;
+  margin-bottom: 28px;
+  /* Bottom padding is short because the last card carries its own 8px. */
+  padding: 14px 14px 6px;
+  background: rgb(26 28 29 / 4%);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+/* One animation for the whole section, driving a variable every card inside
+   it inherits. Animating each card instead would put them in phase only while
+   they mounted together: a job that appeared on a later load would start its
+   own cycle, and the section would flicker rather than breathe. */
+@property --live-pulse {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+
+@keyframes live-breathe {
+  0%,
+  100% {
+    --live-pulse: 1;
+  }
+  50% {
+    --live-pulse: 0.35;
+  }
+}
+
+.open-jobs {
+  animation: live-breathe 4.5s ease-in-out infinite;
 }
 
 .job-row--open {
@@ -1242,6 +1278,44 @@
   justify-content: space-between;
   gap: 12px;
   text-align: start;
+  /* The bar the history rows do not have. Amber as .job-edited uses it —
+     informational, the colour of something worth noticing rather than
+     something wrong. */
+  border-inline-start: 3px solid var(--amber);
+  /* .job-row is a button elsewhere and hands down its pointer. This one is a
+     container with its own buttons; nothing happens if you click the card. */
+  cursor: default;
+}
+
+.job-row--open:hover {
+  border-color: var(--hairline);
+  border-inline-start-color: var(--amber);
+}
+
+/* The pulse. Opacity on a decorative dot and nothing else: its box is the
+   same size at every point in the cycle, so nothing below it moves, and no
+   text ever sits on a background that changes — the card's contrast is
+   constant by construction rather than by measurement. */
+.job-row-open-title::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-inline-end: 8px;
+  vertical-align: middle;
+  background: var(--amber);
+  border-radius: 50%;
+  opacity: var(--live-pulse);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* --live-pulse stays at its initial 1, so the dot is simply solid. Nothing
+     is lost: the well, the section heading and the leading bar are what say
+     these jobs are unfinished. The breathing was decoration on top of a
+     meaning already carried three other ways. */
+  .open-jobs {
+    animation: none;
+  }
 }
 
 .job-row-actions {
