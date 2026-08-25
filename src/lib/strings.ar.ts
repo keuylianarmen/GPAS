@@ -73,6 +73,8 @@ export const ar: Catalogue = {
   'openJob.createFailed': 'تعذّر بدء الأمر.',
   'openJob.saveFailed': 'تعذّر حفظ هذا التغيير.',
   'openJob.lineFailed': 'تعذّر حفظ هذا السطر.',
+  'openJob.deleteRefused':
+    'هذا الأمر لم يعد قيد التنفيذ، فتُرك كما هو. أعد التحميل لمعرفة ما آل إليه.',
   'vehicle.badKmPerDay': 'معدّل الكيلومترات اليومي غير صالح — أدخل عددًا صحيحًا أكبر من صفر، أو اتركه فارغًا.',
 
   'odometer.lower': 'القراءة أقل من قراءة المركبة الحالية — عادةً خطأ إدخال، إلا إذا غُيّر العداد.',
@@ -504,17 +506,15 @@ export const ar: Catalogue = {
   'jobs.editedOn': 'عُدّل في {date}',
   'jobs.openSection': 'قيد التنفيذ',
   'jobs.openHint':
-    'بدأت على الكاونتر ولم تُنجز بعد. تابع للمتابعة، أو ألغِ لوضعها جانبًا — الأمر الملغى يحتفظ بكل ما أُدخل فيه.',
+    'بدأت على الكاونتر ولم تُنجز بعد. تابع للمتابعة، أو احذفها للتخلص منها.',
   'jobs.resume': 'متابعة',
-  'jobs.cancelJob': 'إلغاء الأمر',
-  'jobs.cancelTitle': 'إلغاء الأمر رقم {number}؟',
-  'jobs.cancelBody':
-    'يخرج من قائمة قيد التنفيذ ويحتفظ بكل ما أُدخل فيه. لن يُحتسب زيارةً ولا إيرادًا ولا تذكيرًا.',
-  'jobs.cancelConfirm': 'إلغاء هذا الأمر',
-  'jobs.cancelKeep': 'إبقاؤه مفتوحًا',
-  'jobs.cancelFailed': 'تعذّر إلغاء الأمر.',
+  'jobs.discardJob': 'حذف',
+  'jobs.discardTitle': 'حذف الأمر رقم {number}؟',
+  'jobs.discardBody':
+    'يُحذف الأمر وكل ما أُدخل فيه نهائيًا، ولا يمكن التراجع. أرقام الأوامر لا تُعاد، فالرقم {number} لن يُستخدم مرة أخرى.',
+  'jobs.discardConfirm': 'حذف هذا الأمر',
+  'jobs.discardKeep': 'الإبقاء عليه',
   'jobs.statusOpen': 'قيد التنفيذ',
-  'jobs.statusCancelled': 'ملغى',
   'jobs.noLinesYet': 'لم يُدخل شيء بعد',
   'jobs.startedOn': 'بدأ {date}',
   'jobs.listCapped': 'يعرض أحدث {limit} أمر — ضيّق التصفية لرؤية الأقدم.',
@@ -594,8 +594,8 @@ export const ar: Catalogue = {
   'newJob.changeCustomerLines.many': 'الأمر رقم {number} فيه {count} سطرًا مُدخلًا لـ{customer}.',
   'newJob.changeCustomerLines.other': 'الأمر رقم {number} فيه {count} سطر مُدخل لـ{customer}.',
   'newJob.changeCustomerWhy':
-    'سيُلغى ويُفتح أمر جديد. لا يُحذف شيء — الأمر الملغى يبقى في السجل بكل ما أُدخل فيه، وقراءة الاستحقاق التالي مرتبطة بالمركبة التي قيست عليها.',
-  'newJob.changeCustomerConfirm': 'إلغاء الأمر وفتح أمر جديد',
+    'سيُحذف هو وكل ما فيه، ويُفتح أمر جديد. لا يمكن التراجع، وأرقام الأوامر لا تُعاد — الرقم {number} لن يُستخدم مرة أخرى.',
+  'newJob.changeCustomerConfirm': 'حذف الأمر وفتح أمر جديد',
   'newJob.jobNumber': 'الأمر رقم {number}',
   'newJob.jobOpened': 'الأمر رقم {number} مفتوح. كل ما يلي يُحفظ أولًا بأول.',
   'newJob.jobCreateFailed': 'تعذّر بدء الأمر، فلا شيء يُحفظ حتى الآن.',

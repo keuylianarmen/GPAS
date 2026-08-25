@@ -28,7 +28,7 @@ import {
 import type { TireDraft } from './lib/tire'
 import { customerLabel } from './lib/customer'
 import { jobVehicleLabel, saveKmPerDay, vehicleLabel } from './lib/vehicle'
-import { cancelJob } from './lib/openJob'
+import { deleteOpenJob } from './lib/openJob'
 import { parseOptionalInteger, priceValue } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import type { OdometerWarning } from './lib/odometer'
@@ -88,8 +88,9 @@ export default function Jobs({
   // Kept apart from the list: an unfinished job is something to act on, not
   // something to browse, and the filters below do not apply to it.
   const [openJobs, setOpenJobs] = useState<JobRow[]>([])
-  const [cancelling, setCancelling] = useState<JobRow | null>(null)
-  const [cancelError, setCancelError] = useState<string | null>(null)
+  // The open job awaiting confirmation before it is thrown away.
+  const [discarding, setDiscarding] = useState<JobRow | null>(null)
+  const [discardError, setDiscardError] = useState<string | null>(null)
   const [totals, setTotals] = useState<Map<string, number | null>>(new Map())
   const [jobsReady, setJobsReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -159,7 +160,7 @@ export default function Jobs({
         .select('*, customers(name_en, name_ar), vehicles(plate, make, model), job_items(count)')
         // Open jobs have their own section. They are not history yet, and a
         // date filter over a job still being entered means nothing.
-        .in('status', ['completed', 'cancelled'])
+        .eq('status', 'completed')
         .order('start_date', { ascending: false })
         .order('job_no', { ascending: false })
         .limit(LIST_LIMIT)
@@ -226,6 +227,21 @@ export default function Jobs({
       cancelled = true
     }
   }, [customerFilter, fromDate, toDate, reloadToken])
+
+  /**
+   * Throws an open job away. `deleteOpenJob` carries the status filter, so
+   * this cannot reach a completed one even if the list is stale.
+   */
+  async function discardJob(job: JobRow) {
+    const failure = await deleteOpenJob(job.id)
+    if (failure) {
+      setDiscardError(failure)
+      return
+    }
+    setDiscarding(null)
+    setDiscardError(null)
+    setReloadToken((token) => token + 1)
+  }
 
   const loading = !referenceReady || !jobsReady
 
@@ -359,50 +375,53 @@ export default function Jobs({
                     type="button"
                     className="btn btn--quiet btn--small"
                     onClick={() => {
-                      setCancelError(null)
-                      setCancelling(job)
+                      setDiscardError(null)
+                      // A job with no lines is a stub — a customer was chosen
+                      // and nothing followed. Asking about it is asking about
+                      // nothing, and the reading it may carry was already
+                      // applied to the vehicle by trg_bump_odometer.
+                      if (lines === 0) discardJob(job)
+                      else setDiscarding(job)
                     }}
                   >
-                    {t('jobs.cancelJob')}
+                    {t('jobs.discardJob')}
                   </button>
                 </div>
               </div>
             )
           })}
 
-          {cancelling && (
+          {discardError && !discarding && (
+            <p className="error" role="alert">
+              {discardError}
+            </p>
+          )}
+
+          {discarding && (
             <div className="card notice confirm-panel">
               <p className="confirm-title">
-                {t('jobs.cancelTitle', { number: cancelling.job_no })}
+                {t('jobs.discardTitle', { number: discarding.job_no })}
               </p>
-              <p>{t('jobs.cancelBody')}</p>
-              {cancelError && (
+              <p>{t('jobs.discardBody', { number: discarding.job_no })}</p>
+              {discardError && (
                 <p className="error" role="alert">
-                  {cancelError}
+                  {discardError}
                 </p>
               )}
               <div className="confirm-row">
                 <button
                   type="button"
                   className="btn btn--dark btn--small"
-                  onClick={async () => {
-                    const failure = await cancelJob(cancelling.id)
-                    if (failure) {
-                      setCancelError(failure)
-                      return
-                    }
-                    setCancelling(null)
-                    setReloadToken((token) => token + 1)
-                  }}
+                  onClick={() => discardJob(discarding)}
                 >
-                  {t('jobs.cancelConfirm')}
+                  {t('jobs.discardConfirm')}
                 </button>
                 <button
                   type="button"
                   className="btn btn--quiet btn--small"
-                  onClick={() => setCancelling(null)}
+                  onClick={() => setDiscarding(null)}
                 >
-                  {t('jobs.cancelKeep')}
+                  {t('jobs.discardKeep')}
                 </button>
               </div>
             </div>
@@ -433,12 +452,6 @@ export default function Jobs({
                         ? customerLabel(job.customers)
                         : t('jobs.unknownCustomer')}
                     </span>
-                    {/* Cancelled jobs stay in the list — the record of what
-                        was typed is the reason they were cancelled rather
-                        than deleted — so they say what they are. */}
-                    {job.status === 'cancelled' && (
-                      <span className="job-badge">{t('jobs.statusCancelled')}</span>
-                    )}
                   </div>
                   <div className="list-row-meta">
                     <span className="num">{job.start_date}</span> ·{' '}

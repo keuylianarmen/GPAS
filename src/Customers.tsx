@@ -704,9 +704,6 @@ function CustomerDetail({
                       {job.status === 'open' && (
                         <span className="job-badge">{t('jobs.statusOpen')}</span>
                       )}
-                      {job.status === 'cancelled' && (
-                        <span className="job-badge">{t('jobs.statusCancelled')}</span>
-                      )}
                     </div>
                     <div className="list-row-meta">
                       <span className="num">{job.start_date}</span>

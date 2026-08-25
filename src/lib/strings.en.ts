@@ -71,6 +71,8 @@ export const en = {
   'openJob.createFailed': 'The job could not be started.',
   'openJob.saveFailed': 'That change could not be saved.',
   'openJob.lineFailed': 'That line could not be saved.',
+  'openJob.deleteRefused':
+    'That job is no longer in progress, so it was left alone. Reload to see where it got to.',
   'vehicle.badKmPerDay':
     'Km a day must be a whole number above zero, or left blank.',
 
@@ -487,17 +489,15 @@ export const en = {
   'jobs.editedOn': 'edited {date}',
   'jobs.openSection': 'In progress',
   'jobs.openHint':
-    'Started at the counter and not finished. Resume to carry on, or cancel to put it aside \u2014 a cancelled job keeps everything that was typed on it.',
+    'Started at the counter and not finished. Resume to carry on, or discard to throw it away.',
   'jobs.resume': 'Resume',
-  'jobs.cancelJob': 'Cancel job',
-  'jobs.cancelTitle': 'Cancel job #{number}?',
-  'jobs.cancelBody':
-    'It stops being in progress and keeps everything typed on it. It will not count as a visit, as revenue, or towards a reminder.',
-  'jobs.cancelConfirm': 'Cancel this job',
-  'jobs.cancelKeep': 'Keep it open',
-  'jobs.cancelFailed': 'The job could not be cancelled.',
+  'jobs.discardJob': 'Discard',
+  'jobs.discardTitle': 'Discard job #{number}?',
+  'jobs.discardBody':
+    'The job and everything entered on it are deleted for good. There is no undo. Job numbers do not fill gaps, so #{number} will not be used again.',
+  'jobs.discardConfirm': 'Delete this job',
+  'jobs.discardKeep': 'Keep it',
   'jobs.statusOpen': 'In progress',
-  'jobs.statusCancelled': 'Cancelled',
   'jobs.noLinesYet': 'nothing entered yet',
   'jobs.startedOn': 'started {date}',
   'jobs.listCapped':
@@ -575,8 +575,8 @@ export const en = {
   'newJob.changeCustomerLines.other':
     'Job #{number} has {count} lines entered for {customer}.',
   'newJob.changeCustomerWhy':
-    'It will be cancelled and a new job started. Nothing is deleted \u2014 a cancelled job stays on file with everything typed on it, and a next-due reading belongs to the car it was measured on.',
-  'newJob.changeCustomerConfirm': 'Cancel and start a new job',
+    'It and everything on it are deleted, and a new job is started. There is no undo, and job numbers do not fill gaps \u2014 #{number} will not be used again.',
+  'newJob.changeCustomerConfirm': 'Discard and start a new job',
   'newJob.jobNumber': 'Job #{number}',
   'newJob.jobOpened': 'Job #{number} is open. Everything from here is saved as you go.',
   'newJob.jobCreateFailed':

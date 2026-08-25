@@ -22,7 +22,7 @@ import {
 } from './lib/fluid'
 import { lineDetails } from './lib/lineDetails'
 import {
-  cancelJob,
+  deleteOpenJob,
   completeJob,
   createLine,
   createOpenJob,
@@ -692,7 +692,7 @@ export default function NewJob({
 
   /**
    * Clears everything the previous customer's job put on screen. The rows
-   * themselves are dealt with by the caller — cancelled, or never created.
+   * themselves are dealt with by the caller — discarded, or never created.
    */
   function clearJobState() {
     setVehicleId(null)
@@ -711,7 +711,7 @@ export default function NewJob({
    *
    * An open job with nothing on it is worth moving rather than replacing: a
    * mis-click on the customer list should cost a row update, not a `job_no`.
-   * Once there is work on it, `chooseCustomer` has already cancelled it and
+   * Once there is work on it, `chooseCustomer` has already discarded it and
    * passes `fresh` so a new row is opened instead.
    */
   async function switchCustomer(next: Customer, fresh = false) {
@@ -766,7 +766,7 @@ export default function NewJob({
   }
 
   /**
-   * Consent is taken before the dialog opens, but nothing is cancelled until a
+   * Consent is taken before the dialog opens, but nothing is discarded until a
    * customer actually exists to move to — cancelling the dialog leaves the job
    * exactly as it was.
    */
@@ -780,16 +780,19 @@ export default function NewJob({
 
   /**
    * A confirmed change away from a job that has work on it. The old row is
-   * cancelled rather than rewritten: what was typed at the counter for one
-   * customer is a record, and moving it onto another customer would make the
-   * job history say a visit happened that did not.
+   * thrown away rather than rewritten: moving it onto another customer would
+   * make the job history say a visit happened that did not, and leaving it
+   * behind would fill the resume list with jobs nobody intends to finish.
+   *
+   * Only ever an open job — this screen holds no other kind — and
+   * `deleteOpenJob` carries that as a filter rather than trusting it.
    */
-  async function cancelAndSwitch(next: Customer | null) {
+  async function discardAndSwitch(next: Customer | null) {
     const leaving = job
     setPendingCustomer(null)
 
     if (leaving) {
-      const failure = await cancelJob(leaving.id)
+      const failure = await deleteOpenJob(leaving.id)
       if (failure) {
         setJobError(failure)
         return
@@ -1162,7 +1165,7 @@ export default function NewJob({
               lines={linesWithWork}
               onCancel={() => setPendingCustomer(null)}
               onConfirm={() =>
-                cancelAndSwitch(pendingCustomer === 'new' ? null : pendingCustomer)
+                discardAndSwitch(pendingCustomer === 'new' ? null : pendingCustomer)
               }
             />
           )}
@@ -1704,7 +1707,7 @@ export default function NewJob({
           onSaved={({ customer: created, vehicles: created_vehicles }) => {
             setCustomers((current) => [created, ...current])
             // A created customer is always a different one, so this is always
-            // the full switch. `fresh` when the previous job was cancelled on
+            // the full switch. `fresh` when the previous job was discarded on
             // the way here — cancelAndSwitch clears `job` first, so the flag
             // follows from whether one is still open.
             switchCustomer(created, job === null).then(() => {
@@ -1860,7 +1863,7 @@ function CustomerChangeConfirm({
 }: {
   to: Customer | 'new'
   from: Customer | null
-  /** The job about to be cancelled, named so it can be found afterwards. */
+  /** The job about to be thrown away, named so the confirmation can say which. */
   jobNo: number
   /** How many lines hold work. Never zero — the panel is not shown otherwise. */
   lines: number
@@ -1883,7 +1886,7 @@ function CustomerChangeConfirm({
           number: jobNo,
         })}
       </p>
-      <p className="field-note">{t('newJob.changeCustomerWhy')}</p>
+      <p className="field-note">{t('newJob.changeCustomerWhy', { number: jobNo })}</p>
 
       <div className="confirm-row">
         <button type="button" className="btn btn--dark btn--small" onClick={onConfirm}>

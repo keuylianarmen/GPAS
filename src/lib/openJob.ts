@@ -117,18 +117,34 @@ export async function completeJob(
 }
 
 /**
- * Abandoned rather than deleted. What somebody typed at the counter is a
- * record even when the job did not happen, and a `job_no` is spent either way.
+ * Discards an open job outright — the row and, by cascade, its lines.
  *
- * The lines stay 'open', so nothing about a cancelled job has ever claimed to
- * be work: no reminder was created to cancel, and every view added in 27
- * requires 'completed'.
+ * One statement, deliberately. Deleting the lines first and the job second
+ * would work whether or not the foreign key cascades, at the cost of a window
+ * where a failure leaves a job with its lines gone: a row that says a visit
+ * happened and can no longer say what was done. Deleting only the job has no
+ * such window. It either takes the lines with it or fails having changed
+ * nothing, and both are states somebody can act on.
+ *
+ * `status = 'open'` is part of the statement rather than a check before it.
+ * That is the whole safety property: this cannot remove a completed job even
+ * if it is handed one's id, because the row it would have to match does not
+ * match. Twenty-two jobs of imported history sit behind that filter and there
+ * is no undo anywhere in this app.
+ *
+ * A delete that matches nothing is reported rather than passed off as
+ * success — it means the job was finished or removed by someone else, which
+ * the person looking at a stale list needs to hear.
  */
-export async function cancelJob(jobId: string): Promise<string | null> {
-  const { error } = await supabase
+export async function deleteOpenJob(jobId: string): Promise<string | null> {
+  const { data, error } = await supabase
     .from('jobs')
-    .update({ status: 'cancelled' })
+    .delete()
     .eq('id', jobId)
+    .eq('status', 'open')
+    .select('id')
 
-  return error ? error.message : null
+  if (error) return error.message
+  if (!data || data.length === 0) return t('openJob.deleteRefused')
+  return null
 }
