@@ -7,15 +7,16 @@ import {
   UNTOUCHED_DUE,
   dueDefaults,
   gradeDue,
+  rederivedDue,
   regradeDue,
-  withRegradedDue,
+  withDue,
 } from './lib/due'
 import type { DueMark } from './lib/due'
 import { useGradeIntervals } from './lib/useGradeIntervals'
-import { emptyFluidDraft, usesFluid } from './lib/fluid'
+import { emptyFluidDraft, sameFluid, usesFluid } from './lib/fluid'
 import { lineDetails } from './lib/lineDetails'
 import type { FluidDraft } from './lib/fluid'
-import { emptyTireDraft, tracksTires } from './lib/tire'
+import { emptyTireDraft, sameTire, tracksTires } from './lib/tire'
 import type { TireDraft } from './lib/tire'
 import { customerLabel, matchesCustomerSearch } from './lib/customer'
 import { jobVehicleLabel, vehicleLabel } from './lib/vehicle'
@@ -23,7 +24,7 @@ import { parseOptionalInteger, priceValue, sumPrices } from './lib/parse'
 import { ODOMETER_WARNINGS, useOdometerCheck } from './lib/odometer'
 import Collapsible from './components/Collapsible'
 import ServicePicker from './components/ServicePicker'
-import { localised, t } from './lib/i18n'
+import { localised, t, tn } from './lib/i18n'
 import type { StringKey } from './lib/i18n'
 import Dialog from './components/Dialog'
 import PriceFields from './components/PriceFields'
@@ -63,6 +64,28 @@ type Line = {
   dueMark: DueMark
   fluid: FluidDraft
   tire: TireDraft
+}
+
+/**
+ * Whether a line holds anything a customer change would throw away.
+ *
+ * A line that exists but has nothing in it is not work: the services step
+ * opens a picker automatically on arrival, so an untouched blank line is the
+ * normal state of a job nobody has typed into yet, and prompting about it
+ * would be prompting about nothing.
+ */
+function lineHasWork(line: Line): boolean {
+  return (
+    line.serviceId !== '' ||
+    line.partPrice.trim() !== '' ||
+    line.laborPrice.trim() !== '' ||
+    line.subPrice.trim() !== '' ||
+    line.subcontractorId !== null ||
+    line.nextDueKm.trim() !== '' ||
+    line.nextDueDate.trim() !== '' ||
+    !sameFluid(line.fluid, emptyFluidDraft()) ||
+    !sameTire(line.tire, emptyTireDraft())
+  )
 }
 
 const STEPS: StringKey[] = [
@@ -106,6 +129,9 @@ export default function NewJob() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [customerQuery, setCustomerQuery] = useState('')
   const [addingCustomer, setAddingCustomer] = useState(false)
+  // A customer change waiting on the confirmation. 'new' is the same change
+  // via the add dialog, which has no customer to name yet.
+  const [pendingCustomer, setPendingCustomer] = useState<Customer | 'new' | null>(null)
   const [pickingCustomer, setPickingCustomer] = useState(true)
 
   // Tagged with the customer it belongs to, so a stale list is never shown
@@ -281,6 +307,9 @@ export default function NewJob() {
 
   const filledLines = lines.filter((line) => line.serviceId !== '')
 
+  const linesWithWork = lines.filter(lineHasWork).length
+  const linesHoldWork = linesWithWork > 0
+
   const linesTotal = filledLines.reduce(
     (sum, line) => sum + sumPrices(line.partPrice, line.laborPrice, line.subPrice),
     0,
@@ -352,16 +381,22 @@ export default function NewJob() {
     setLines((current) =>
       current.map((line) => {
         const service = serviceById.get(line.serviceId)
-        return withRegradedDue(
+        return withDue(
           line,
-          gradeDue({
-            service,
-            interval: gradeInterval(service?.fluid_grade_list ?? null, line.fluid.grade),
-            odometer: jobOdometer,
-            kmPerDay: next,
-            baseDate: todayIso(),
+          regradeDue(
             line,
-          }),
+            gradeDue({
+              service,
+              interval: gradeInterval(
+                service?.fluid_grade_list ?? null,
+                line.fluid.grade,
+              ),
+              odometer: jobOdometer,
+              kmPerDay: next,
+              baseDate: todayIso(),
+              line,
+            }),
+          ),
         )
       }),
     )
@@ -375,23 +410,103 @@ export default function NewJob() {
 
   const selectedVehicle = vehicles.find((row) => row.id === vehicleId) ?? null
 
-  function chooseCustomer(next: Customer) {
+  /**
+   * The reset a genuine customer change makes.
+   *
+   * The lines go. Their next-due readings were measured against a car that
+   * belongs to somebody else, and the reminder they create is keyed on that
+   * vehicle — there is nothing in a line that survives the move. The picker
+   * flag goes with them so the services step opens one again, as on a fresh
+   * job.
+   */
+  function switchCustomer(next: Customer) {
     setCustomer(next)
     setPickingCustomer(false)
     setVehicleId(null)
     setVehicleChosen(false)
     setOdometer('')
+    setLines([])
+    servicePickerOpened.current = false
+  }
+
+  function chooseCustomer(next: Customer) {
+    // The customer already on the job. Going back to check a name is not a
+    // change, and must not cost the chosen vehicle or the typed reading.
+    if (next.id === customer?.id) {
+      setPickingCustomer(false)
+      continueRef.current?.focus()
+      return
+    }
+
+    if (linesHoldWork) {
+      setPendingCustomer(next)
+      return
+    }
+
+    switchCustomer(next)
     // One Tab and Enter from here, rather than scrolling past the list.
     continueRef.current?.focus()
   }
 
+  /**
+   * Consent is taken before the dialog opens, but nothing is discarded until a
+   * customer actually exists to move to — cancelling the dialog leaves the job
+   * exactly as it was.
+   */
+  function startNewCustomer() {
+    if (linesHoldWork) {
+      setPendingCustomer('new')
+      return
+    }
+    setAddingCustomer(true)
+  }
+
+  /**
+   * A different car for the same customer is the same work on a different
+   * vehicle, so the lines stay — the services, prices and fluids are all still
+   * right. Only the next-due pair was measured against the old car, and only
+   * the half of it the app still owns is rewritten.
+   */
   function chooseVehicle(vehicle: Vehicle | null) {
-    setVehicleId(vehicle?.id ?? null)
+    const nextId = vehicle?.id ?? null
+    // Re-picking what is already on the job. Not a change, so the reading
+    // typed for this visit is left where it is. `vehicleChosen` is part of the
+    // comparison because "not chosen yet" and "deliberately none" are both a
+    // null id, and moving between them is a real change.
+    if (vehicleChosen && nextId === vehicleId) {
+      setPickingVehicle(false)
+      continueRef.current?.focus()
+      return
+    }
+
+    const reading = vehicle?.current_odometer ?? null
+    setVehicleId(nextId)
     setVehicleChosen(true)
     setPickingVehicle(false)
-    setOdometer(
-      vehicle?.current_odometer == null ? '' : String(vehicle.current_odometer),
+    setOdometer(reading === null ? '' : String(reading))
+
+    // The new car's own figures, not the memos, which are still holding the
+    // old car's until this render lands.
+    setLines((current) =>
+      current.map((line) => {
+        const service = serviceById.get(line.serviceId)
+        return withDue(
+          line,
+          rederivedDue({
+            service,
+            interval: gradeInterval(
+              service?.fluid_grade_list ?? null,
+              line.fluid.grade,
+            ),
+            odometer: reading,
+            kmPerDay: vehicle?.km_per_day ?? null,
+            baseDate: todayIso(),
+            line,
+          }),
+        )
+      }),
     )
+
     continueRef.current?.focus()
   }
 
@@ -583,6 +698,23 @@ export default function NewJob() {
             </div>
           )}
 
+          {pendingCustomer !== null && (
+            <CustomerChangeConfirm
+              to={pendingCustomer}
+              from={customer}
+              lines={linesWithWork}
+              onCancel={() => setPendingCustomer(null)}
+              onConfirm={() => {
+                setPendingCustomer(null)
+                // The 'new' path discards nothing yet: the dialog may be
+                // cancelled, and there is no customer to move to until it is
+                // not. Its onSaved runs the same switch this branch does.
+                if (pendingCustomer === 'new') setAddingCustomer(true)
+                else switchCustomer(pendingCustomer)
+              }}
+            />
+          )}
+
           <Collapsible open={pickingCustomer}>
             <div className="toolbar">
               <div className="toolbar-search">
@@ -598,7 +730,7 @@ export default function NewJob() {
               <button
                 type="button"
                 className="btn btn--ghost"
-                onClick={() => setAddingCustomer(true)}
+                onClick={startNewCustomer}
               >
                 {t('newJob.newCustomer')}
               </button>
@@ -1111,8 +1243,10 @@ export default function NewJob() {
           onClose={() => setAddingCustomer(false)}
           onSaved={({ customer: created, vehicles: created_vehicles }) => {
             setCustomers((current) => [created, ...current])
-            setCustomer(created)
-            setPickingCustomer(false)
+            // A created customer is always a different one, so this is always
+            // the full switch — including the lines, which belonged to
+            // whoever was on the job before.
+            switchCustomer(created)
             setVehicleLoad({ customerId: created.id, rows: created_vehicles })
             setAddingCustomer(false)
           }}
@@ -1171,6 +1305,58 @@ export default function NewJob() {
         />
       )}
     </>
+  )
+}
+
+/**
+ * Consent before a customer change throws away entered lines.
+ *
+ * Same shape as the vehicle-change confirmation in Jobs: an inline amber
+ * panel that names the consequence, not a modal. What it protects is not
+ * undoable — this app has no undo — but it is also not dangerous, so it asks
+ * once and gets out of the way.
+ *
+ * It fires on the customer id changing and on there being work to lose, and
+ * on nothing else. It does not try to work out whether the two customers
+ * share a car: no vehicle has been chosen for the incoming one yet, so there
+ * is nothing to compare against, and the wording says what is true either way.
+ */
+function CustomerChangeConfirm({
+  to,
+  from,
+  lines,
+  onCancel,
+  onConfirm,
+}: {
+  to: Customer | 'new'
+  from: Customer | null
+  /** How many lines hold work. Never zero — the panel is not shown otherwise. */
+  lines: number
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const fromLabel = from ? customerLabel(from) : t('newJob.thisCustomer')
+
+  return (
+    <div className="card notice confirm-panel">
+      <p className="confirm-title" dir="auto">
+        {to === 'new'
+          ? t('newJob.changeCustomerNewTitle')
+          : t('newJob.changeCustomerTitle', { customer: customerLabel(to) })}
+      </p>
+
+      <p dir="auto">{tn(lines, 'newJob.changeCustomerLines', { customer: fromLabel })}</p>
+      <p className="field-note">{t('newJob.changeCustomerWhy')}</p>
+
+      <div className="confirm-row">
+        <button type="button" className="btn btn--dark btn--small" onClick={onConfirm}>
+          {t('newJob.changeCustomerConfirm')}
+        </button>
+        <button type="button" className="btn btn--quiet btn--small" onClick={onCancel}>
+          {t('action.cancel')}
+        </button>
+      </div>
+    </div>
   )
 }
 

@@ -105,14 +105,7 @@ export type GradeDue = {
  * oil_grade carries nulls, and computing from those would produce a date out
  * of nothing.
  */
-export function gradeDue({
-  service,
-  interval,
-  odometer,
-  kmPerDay,
-  baseDate,
-  line,
-}: {
+export type DueInputs = {
   service: Remindable | undefined
   interval: GradeInterval | null | undefined
   odometer: number | null
@@ -120,7 +113,16 @@ export function gradeDue({
   baseDate: string
   /** The next-due reading as it stands, and whether it is the app's or a person's. */
   line: { nextDueKm: string; dueMark: DueMark }
-}): GradeDue | null {
+}
+
+export function gradeDue({
+  service,
+  interval,
+  odometer,
+  kmPerDay,
+  baseDate,
+  line,
+}: DueInputs): GradeDue | null {
   // A line whose service does not trigger a reminder has no next-due fields on
   // screen; filling them would store a due point nobody can see.
   if (!service?.triggers_reminder) return null
@@ -184,6 +186,9 @@ export function gradeDue({
   }
 }
 
+/** What a recomputation offers to change about a line's next-due pair. */
+export type DuePatch = { nextDueKm?: string; nextDueDate?: string }
+
 /**
  * The patch a grade change makes to a line's next-due fields.
  *
@@ -196,10 +201,7 @@ export function gradeDue({
  * because the job has no odometer, leaves what is already there. Not firing
  * is the correct behaviour, not clearing.
  */
-export function regradeDue(
-  line: { dueMark: DueMark },
-  due: GradeDue | null,
-): { nextDueKm?: string; nextDueDate?: string } {
+export function regradeDue(line: { dueMark: DueMark }, due: GradeDue | null): DuePatch {
   if (due === null) return {}
 
   return {
@@ -211,19 +213,44 @@ export function regradeDue(
 }
 
 /**
- * The same patch, applied. For sweeping every line at once when something the
- * whole job shares changes — the car's daily average is a property of the
- * vehicle, so answering that question on one line moves the dates on all of
- * them. A line with nothing to rewrite is returned unchanged, identity and
- * all, so React re-renders only what actually moved.
+ * The patch a line needs when the car under it has changed.
+ *
+ * Not a regrade. A regrade answers "this grade lasts longer than the last
+ * one"; this answers "everything these two numbers were measured against has
+ * been replaced" — a different reading, a different daily average, a different
+ * vehicle for the reminder to be keyed on.
+ *
+ * Two differences follow from that. It falls back to the service's own
+ * interval where the grade carries none, so a brake fluid line is re-derived
+ * along with the oil rather than left measured against a car no longer on the
+ * job. And a blank result is written rather than skipped: where a regrade's
+ * blank means "this grade says nothing", a re-derive's means "there is no
+ * reading to measure from now", which is a fact about the new car and worth
+ * more than a figure belonging to the old one.
+ *
+ * Marked fields only, as ever. A typed next-due is a decision about how far
+ * this car goes before it comes back, and it survives the swap.
  */
-export function withRegradedDue<
-  T extends { nextDueKm: string; nextDueDate: string; dueMark: DueMark },
->(line: T, due: GradeDue | null): T {
-  const patch = regradeDue(line, due)
-  // A rewrite that lands on the same value is not a change. Most of a job's
-  // lines are in that position when one figure moves, and handing React a new
-  // object for each of them would re-render the lot.
+export function rederivedDue(inputs: DueInputs): DuePatch {
+  const fresh =
+    gradeDue(inputs) ?? dueDefaults(inputs.service, inputs.odometer, inputs.baseDate)
+
+  return {
+    ...(inputs.line.dueMark.km ? { nextDueKm: fresh.nextDueKm } : {}),
+    ...(inputs.line.dueMark.date ? { nextDueDate: fresh.nextDueDate } : {}),
+  }
+}
+
+/**
+ * Applies a patch to a line. A patch that changes nothing returns the line
+ * itself, identity and all — most of a job's lines are in that position when
+ * one shared figure moves, and handing React a new object for each of them
+ * would re-render the lot.
+ */
+export function withDue<T extends { nextDueKm: string; nextDueDate: string }>(
+  line: T,
+  patch: DuePatch,
+): T {
   const moved =
     (patch.nextDueKm !== undefined && patch.nextDueKm !== line.nextDueKm) ||
     (patch.nextDueDate !== undefined && patch.nextDueDate !== line.nextDueDate)

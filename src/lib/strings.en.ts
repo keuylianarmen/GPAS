@@ -551,6 +551,14 @@ export const en = {
   'newJob.startAnother': 'Start another job',
   'newJob.newCustomer': 'New customer',
   'newJob.noCustomers': 'No customers yet.',
+  'newJob.changeCustomerTitle': 'Change the customer to {customer}?',
+  'newJob.changeCustomerNewTitle': 'Change to a new customer?',
+  'newJob.changeCustomerLines.one': 'The line entered for {customer} will be discarded.',
+  'newJob.changeCustomerLines.other':
+    'The {count} lines entered for {customer} will be discarded.',
+  'newJob.changeCustomerWhy':
+    'A next-due reading belongs to the car it was measured on, so lines do not carry across to another customer\u2019s job.',
+  'newJob.changeCustomerConfirm': 'Change customer and discard',
   'newJob.noCustomerMatch': 'No customer matches \u201C{query}\u201D.',
   'newJob.noVehicleForJob': 'No vehicle for this job',
   'newJob.roadside': 'Roadside or counter sale',

@@ -7,7 +7,7 @@ import {
   dueDefaults,
   gradeDue,
   regradeDue,
-  withRegradedDue,
+  withDue,
 } from './lib/due'
 import type { DueMark } from './lib/due'
 import { useGradeIntervals } from './lib/useGradeIntervals'
@@ -578,16 +578,22 @@ function JobDialog({
     setDrafts((current) =>
       current.map((draft) => {
         const service = serviceById.get(draft.serviceId)
-        return withRegradedDue(
+        return withDue(
           draft,
-          gradeDue({
-            service,
-            interval: gradeInterval(service?.fluid_grade_list ?? null, draft.fluid.grade),
-            odometer: jobOdometer,
-            kmPerDay: next,
-            baseDate: job.start_date,
-            line: draft,
-          }),
+          regradeDue(
+            draft,
+            gradeDue({
+              service,
+              interval: gradeInterval(
+                service?.fluid_grade_list ?? null,
+                draft.fluid.grade,
+              ),
+              odometer: jobOdometer,
+              kmPerDay: next,
+              baseDate: job.start_date,
+              line: draft,
+            }),
+          ),
         )
       }),
     )
